@@ -18,20 +18,20 @@ class BoAtSim:
                 "x": 0,
                 "v_boat": 0,
                 "alpha": 0,
-                "omega": 1,
+                "omega": 2*np.pi,
                 "R": 0.10,
                 "d": 0.05,
                 "h": 0.05,
-                "N_paddles": 6,
+                "N_paddles": 8,
                 "rho": 1000,
                 "C_paddle": 1.28,
                 "C_front": 1.28,
                 "m": 2,
-                "A_front": np.sqrt(0.5) * 0.075 * 0.15,
+                # "A_front": np.sqrt(0.5) * 0.075 * 0.15,
+                "A_front": np.sqrt(0.5) * 0.005 * 0.15,
                 "v_water": 0.0,
                 "dt": 0.01,
-            }
-    ) -> None:
+            }) -> None:
         """
         Initializer
         """
@@ -60,6 +60,13 @@ class BoAtSim:
         whole `state` dictionary.
         """
         self._state.update(state)
+
+    def get_state(self, keys:type.List[str]=None) -> type.Dict[str, float]:
+        """
+        Returns (a subset of) the state.
+        """
+        if keys is None: keys = self._state.keys()
+        return {key: self._state[key] for key in keys}
 
 
     def calculate_waterwheel_force(self) -> float:
@@ -120,9 +127,9 @@ class BoAtSim:
             and
             paddle_angle <= np.arccos(self._state["h"] / self._state["R"])
             and
-            min(abs(self._state["h"]/np.cos(paddle_angle)), self._state["R"]) < l
+            min(abs(self._state["h"]/np.cos(paddle_angle)), self._state["R"]) <= l
             and
-            l < self._state["R"]
+            l <= self._state["R"]
         ):
             cos_a = np.cos(paddle_angle)
             factors = [
@@ -162,7 +169,7 @@ class BoAtSim:
         # With everything calculated, append to cache
         self.flush_state_to_cache()
         # Initialize a dict to hold the new sim state
-        new_state = self._state
+        new_state = self.get_state()
 
         # Update state
         new_state["v_boat"] += a*self._state["dt"]
