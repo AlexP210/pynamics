@@ -1,9 +1,14 @@
+import typing as type
+import argparse
+import os
+
 import scipy.integrate as integrate
 import numpy as np
-import typing as type
 import pandas as pd
 import matplotlib.pyplot as plt
 import tqdm as tqdm
+
+import Constants
 
 class BoAtSim:
     def __init__(
@@ -13,18 +18,18 @@ class BoAtSim:
                 "x": 0,
                 "v_boat": 0,
                 "alpha": 0,
-                "omega": 0.1,
+                "omega": 1,
                 "R": 0.10,
                 "d": 0.05,
-                "h": 0.01,
-                "N_paddles": 8,
+                "h": 0.05,
+                "N_paddles": 6,
                 "rho": 1000,
                 "C_paddle": 1.28,
                 "C_front": 1.28,
-                "dt": 0.01,
                 "m": 2,
                 "A_front": np.sqrt(0.5) * 0.075 * 0.15,
-                "v_water": 0
+                "v_water": 0.0,
+                "dt": 0.01,
             }
     ) -> None:
         """
@@ -33,6 +38,21 @@ class BoAtSim:
         self._state = state
         self.history = pd.DataFrame(columns=self._state.keys())
         self.history_cache = {}
+
+    def load_state(self, name, state_database: pd.DataFrame):
+        """
+        Selects the state with index `name` from `state_database`.
+        `state_database` can be a database of initial states or a previous
+        sim output.
+        """
+        # Pandas exports the dataframe as {col: {index: value}} format, even if
+        # there's only one index value in the dataframe. We need {col: value} 
+        # for the index selected
+        state_database_as_dict = state_database.to_dict()
+        state_dict = {col: state_database_as_dict[col][name] 
+                      for col in state_database_as_dict.keys()}
+        self.update_state(state_dict)
+
 
     def update_state(self, state:type.Dict[str, float]) -> None:
         """
@@ -48,9 +68,10 @@ class BoAtSim:
         to get the force acting on the water wheels.
         """
         paddle_angles = self._state["alpha"] + np.linspace(
-            start = 0, 
-            stop = 2*np.pi,
-            num = self._state["N_paddles"]
+            start = -np.pi, 
+            stop = np.pi,
+            num = self._state["N_paddles"],
+            endpoint=False
         )
         paddle_forces = [
             self.calculate_paddle_force(paddle_angle=paddle_angle)
@@ -89,11 +110,15 @@ class BoAtSim:
         Calculates the horizontal pressure on the paddle at a length of l from
         the hub of the water wheel.
         """
+        # Convert the paddle angle from (-inf, inf) to [-pi, pi) to match the
+        # convention of the dynamics formulation
+        paddle_angle = paddle_angle%(2*np.pi)
+        if paddle_angle >= np.pi: paddle_angle -= 2*np.pi
         # If the section of the wheel is in the water, calculate pressure
         if (
-            -np.arccos(self._state["h"] / self._state["R"]) < paddle_angle
+            -np.arccos(self._state["h"] / self._state["R"]) <= paddle_angle
             and
-            paddle_angle < np.arccos(self._state["h"] / self._state["R"])
+            paddle_angle <= np.arccos(self._state["h"] / self._state["R"])
             and
             min(abs(self._state["h"]/np.cos(paddle_angle)), self._state["R"]) < l
             and
@@ -127,13 +152,13 @@ class BoAtSim:
         # Calculate the force acting on us during this dt
         forces = {
             "f_paddles": self.calculate_waterwheel_force(),
-            "f_body_drag": 0
+            "f_body_drag": self.calculate_body_drag_force()
         }
-        self.update_state(forces)
+        self.update_state(state=forces)
         total_force = sum(forces.values())
         # Calculate acceleration & update the velocity and position
         a = total_force/self._state["m"]
-        self.update_state({"a":a})
+        self.update_state(state={"a":a})
         # With everything calculated, append to cache
         self.flush_state_to_cache()
         # Initialize a dict to hold the new sim state
@@ -163,12 +188,46 @@ class BoAtSim:
         self.history = pd.DataFrame(self.history_cache)
 
 if __name__ == "__main__":
-    sim = BoAtSim()
-    sim.simulate(20, verbose=True)
-    plt.plot(sim.history["alpha"]%(2*np.pi), sim.history["f_paddles"], label="paddles")
-    # plt.plot(sim.history["t"], sim.history["f_body_drag"], label="body")
-    plt.legend()
-    plt.show()
-    plt.plot(sim.history["t"], sim.history["x"])
-    plt.show()
+    parser = argparse.ArgumentParser(description='PyBoAtSim is a simulator for the Bo-At.')
+    parser.add_argument('-i', '--initial_state_name', 
+                        dest='initial_state_name',
+                        help='Name of the initial state from InitialConditions.csv', 
+                        default='Mk0_StillWater_1rad',
+                        metavar='INIT')
+    parser.add_argument('-d', '--duration', 
+                        dest='duration',
+                        help='Length of time to simulate.', 
+                        default=60,
+                        metavar='DUR')
+    parser.add_argument('-dt', '--time_step', 
+                        dest='time_step',
+                        help='Time step to use.', 
+                        default=0.01,
+                        metavar='DT')    
+    parser.add_argument('-o', '--output', 
+                        dest='output',
+                        help='Path to write the sim output to. If None use `Outputs/<initial_state_name>.csv`', 
+                        default=None,
+                        metavar='OUT')
+    # Parse the arguments
+    args = parser.parse_args()
+    if args.output is None: args.output = os.path.join(
+        Constants.HOME, "Outputs", 
+        args.initial_state_name+".csv")
 
+    # Assemble the sim
+    sim = BoAtSim()
+    sim.load_state(
+        name=args.initial_state_name,
+        state_database=pd.read_csv("InitialConditions.csv", index_col="Name")
+    )
+    sim.update_state(state={"dt":args.time_step})
+
+    # Run the sim
+    sim.simulate(delta_t=float(args.duration), verbose=True)
+
+    # Save the outputs
+    sim.history.to_csv(
+        path_or_buf=args.output,
+        sep=",",
+        index="Name")
