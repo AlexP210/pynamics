@@ -1,3 +1,5 @@
 PyBoAtSim-Env
 __pycache__
 .*
+**/*.png
+**/*.csv
