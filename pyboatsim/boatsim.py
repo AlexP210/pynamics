@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import tqdm as tqdm
 
-from constants import HOME, AXES
+from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
 from pyboatsim.dynamics import DynamicsParent, WaterWheel, BodyDrag, ConstantForce
 
