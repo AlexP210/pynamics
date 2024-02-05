@@ -1,3 +1,4 @@
-from dynamics import Dynamics
-from bodydrag import BodyDrag
-from waterwheel import WaterWheel
+from pyboatsim.dynamics.dynamics_parent import DynamicsParent
+from pyboatsim.dynamics.bodydrag import BodyDrag
+from pyboatsim.dynamics.waterwheel import WaterWheel
+from pyboatsim.dynamics.constant_force import ConstantForce

@@ -3,46 +3,55 @@ import typing
 import numpy as np
 import scipy.integrate as integrate
 
-from dynamics import DynamicsParent
+from pyboatsim.constants import AXES
+from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 
 class WaterWheel(DynamicsParent):
     def __init__(
             self,
+            name: str,
             wheel_radius: float,
             paddle_width: float,
             wheel_hub_height: float,
             number_of_paddles_per_wheel: float,
             paddle_drag_coefficient: float,
-            mass: float,
-            side: str,
+            torque_polarity: int,
         ):
+        super().__init__(name=name)
         self.dynamics_parameters = {
             "radius": wheel_radius,
             "paddle_width": paddle_width,
             "height": wheel_hub_height,
             "number_of_paddles": number_of_paddles_per_wheel,
             "drag_coefficient": paddle_drag_coefficient,
+            "torque_polarity": torque_polarity
         }
-        self.name = f"waterwheel_{side}"
 
     def required_state_labels(self):
         return [
-            f"alpha_{self.name}",
-            f"omega_{self.name}",
-            "rho",
-            "v_boat",
-            "v_water"
+            "rho" 
+        ] + [
+            f"v_{axis}__boat" for axis in AXES
+        ] + [
+            f"gamma__{self.name}",
+            f"gammadot__{self.name}"
         ]
     
     def compute_dynamics(self, state:State):
-        return self._calculate_waterwheel_force(
-            alpha = state[f"alpha_{self.name}"],
+        x = self._calculate_waterwheel_force(
+            alpha = state[f"gamma__{self.name}"],
             rho=state["rho"],
-            v_water=state["v_water"],
-            v_boat=state["v_boat"],
-            omega=state[f"omega_{self.name}"]
+            v_water=state["v_x__water"],
+            v_boat=state["v_x__boat"],
+            omega=state[f"gammadot__{self.name}"]
         )
+        state[f"gamma__{self.name}"] += state[f"gammadot__{self.name}"]
+        for axis in AXES:
+            val = x if axis == "x" else 0
+            state.set({f"f_{axis}__{self.name}": val})
+            state.set({f"tau_{axis}__{self.name}": 0})
+        return state
 
     def _calculate_paddle_pressure(
             self, 
@@ -98,7 +107,7 @@ class WaterWheel(DynamicsParent):
         """
         Calculates the force acting on a paddle.
         """
-        integrand = lambda l: self.state["d"] * self._calculate_paddle_pressure(
+        integrand = lambda l: self.dynamics_parameters["paddle_width"] * self._calculate_paddle_pressure(
             paddle_angle=paddle_angle,
             l=l,
             rho=rho,
@@ -108,8 +117,10 @@ class WaterWheel(DynamicsParent):
         )
         return integrate.quad(
             func=integrand,
-            a=min(abs(self.state["h"]/np.cos(paddle_angle)), self.state["R"]),
-            b=float(self.state["R"])
+            a=min(
+                abs(self.dynamics_parameters["height"]/np.cos(paddle_angle)), 
+                self.dynamics_parameters["radius"]),
+            b=self.dynamics_parameters["radius"]
         )[0]
 
     def _calculate_waterwheel_force(

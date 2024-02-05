@@ -3,15 +3,18 @@ import typing
 import numpy as np
 import scipy.integrate as integrate
 
-from dynamics import DynamicsParent
-from state import State
+from pyboatsim.dynamics import DynamicsParent
+from pyboatsim.state import State
+from pyboatsim.constants import AXES
 
 class BodyDrag(DynamicsParent):
     def __init__(
             self,
+            name: str,
             cross_sectional_area: float,
             drag_coefficient: float,
         ):
+        super().__init__(name=name)
         self.dynamics_parameters = {
             "cross_sectional_area": cross_sectional_area,
             "drag_coefficient": drag_coefficient,
@@ -20,17 +23,22 @@ class BodyDrag(DynamicsParent):
 
     def required_state_labels(self):
         return [
-            "rho",
-            "v_boat",
-            "v_water"
-        ]
+            "rho" 
+            ] + [
+                f"v_{axis}__boat" for axis in AXES
+            ] + [
+                f"v_{axis}__water" for axis in AXES
+            ]
     
-    def compute_dynamics(self, state:State):
-        factors = [
-            np.sign(state["v_water"] - state["v_boat"]),
-            0.5*self.dynamics_parameters["drag_coefficient"]*state["rho"],
-            self.dynamics_parameters["cross_sectional_area"],
-            (state["v_water"]-state["v_boat"])**2
-        ]
-        return np.prod(factors)
+    def compute_dynamics(self, state:State) -> State:
+        for axis in AXES:
+            factors = [
+                np.sign(state[f"v_{axis}__water"] - state[f"v_{axis}__boat"]),
+                0.5*self.dynamics_parameters["drag_coefficient"]*state["rho"],
+                self.dynamics_parameters["cross_sectional_area"],
+                (state[f"v_{axis}__water"] - state[f"v_{axis}__boat"])**2
+            ]
+            state.set({f"f_{axis}__{self.name}": np.prod(factors)})
+            state.set({f"tau_{axis}__{self.name}": 0})
+        return state
 

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import pyboatsim.pyboatsim
+import pyboatsim.boatsim
 
 # See the effect of R and h/R on the terminal velocity
 sim = pyboatsim.BoAtSim()

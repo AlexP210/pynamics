@@ -30,11 +30,11 @@ class State:
         """
         Returns (a subset of) the state.
         """
-        if keys is None: keys = self._state_dictionary.keys()
-        return {key: self._state_dictionary[key] for key in keys}
+        if state_labels is None: state_labels = self._state_dictionary.keys()
+        return {label: self._state_dictionary[label] for label in state_labels}
     
     def copy(self):
-        return State().set(self._state_dictionary)
+        return State(state_dictionary=self.get())
     
     def __getitem__(self, key):
         return self._state_dictionary[key]
