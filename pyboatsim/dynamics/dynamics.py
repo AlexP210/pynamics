@@ -3,7 +3,7 @@ import abc
 
 from pyboatsim.state import State
 
-class Dynamics(abc.ABC):
+class DynamicsParent(abc.ABC):
     @abc.abstractmethod
     def __init__(self, **kwargs):
         """
@@ -33,7 +33,7 @@ class Dynamics(abc.ABC):
             "Implement `required_state_labels()` in your `Dynamics` subclass."
             )
 
-    def __call__(self, state: State) -> State:
+    def __call__(self, state) -> float:
         """
         Handles checking if the passed `State` object contains all the required
         labels, printing a helpful error message if not, and calculating 
