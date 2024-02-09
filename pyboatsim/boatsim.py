@@ -9,7 +9,7 @@ import tqdm as tqdm
 
 from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
-from pyboatsim.dynamics import DynamicsParent, WaterWheel, BodyDrag, ConstantForce
+from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce
 
 class BoAtSim:
     def __init__(
@@ -53,7 +53,7 @@ class BoAtSim:
         """
         # Apply the dynamics on the state
         for dynamics_module in self.dynamics:
-            self.state = dynamics_module(self.state)
+            self.state = dynamics_module(self.state, dt)
 
         # For each axis, apply the dynamics & update the state
         for axis in AXES:
@@ -161,7 +161,7 @@ if __name__ == "__main__":
         }), 
         dynamics=[
             WaterWheel("waterwheel", 1, 1, 0.1, 2, 1, 1),
-            BodyDrag("bodydrag", 1, 1),
+            SimpleBodyDrag("bodydrag", 1, 1),
         ]
     )
 

@@ -13,7 +13,7 @@ class DynamicsParent(abc.ABC):
         self.name = name
 
     @abc.abstractmethod
-    def compute_dynamics(self, state: State) -> State:
+    def compute_dynamics(self, state:State, dt:float) -> State:
         """
         Each instance of Dynamics needs to implement a calculation of the 
         dynamics, adding a state
@@ -32,7 +32,7 @@ class DynamicsParent(abc.ABC):
             "Implement `required_state_labels()` in your `Dynamics` subclass."
             )
 
-    def __call__(self, state: State) -> float:
+    def __call__(self, state:State, dt:float) -> float:
         """
         Handles checking if the passed `State` object contains all the required
         labels, printing a helpful error message if not, and calculating 
@@ -45,4 +45,4 @@ class DynamicsParent(abc.ABC):
         if len(missing_labels) != 0: raise ValueError(
             f"The following labels are missing from the sim state, dynamics"
             f" cannot be calculated: {', '.join(missing_labels)}")
-        return self.compute_dynamics(state)
+        return self.compute_dynamics(state, dt)

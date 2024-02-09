@@ -7,7 +7,7 @@ from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 from pyboatsim.constants import AXES
 
-class BodyDrag(DynamicsParent):
+class SimpleBodyDrag(DynamicsParent):
     def __init__(
             self,
             name: str,
@@ -30,7 +30,7 @@ class BodyDrag(DynamicsParent):
                 f"v_{axis}__water" for axis in AXES
             ]
     
-    def compute_dynamics(self, state:State) -> State:
+    def compute_dynamics(self, state:State, dt:float) -> State:
         for axis in AXES:
             factors = [
                 np.sign(state[f"v_{axis}__water"] - state[f"v_{axis}__boat"]),

@@ -31,7 +31,7 @@ class ConstantForce(DynamicsParent):
     def required_state_labels(self):
         return []
     
-    def compute_dynamics(self, state:State) -> State:
+    def compute_dynamics(self, state:State, dt:float) -> State:
         for axis in AXES:
             state.set({
                 f"f_{axis}__{self.name}": self.dynamics_parameters[f"f_{axis}"],

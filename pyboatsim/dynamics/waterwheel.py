@@ -38,7 +38,7 @@ class WaterWheel(DynamicsParent):
             f"gammadot__{self.name}"
         ]
     
-    def compute_dynamics(self, state:State):
+    def compute_dynamics(self, state:State, dt:float):
         x = self._calculate_waterwheel_force(
             alpha = state[f"gamma__{self.name}"],
             rho=state["rho"],
@@ -46,7 +46,7 @@ class WaterWheel(DynamicsParent):
             v_boat=state["v_x__boat"],
             omega=state[f"gammadot__{self.name}"]
         )
-        state[f"gamma__{self.name}"] += state[f"gammadot__{self.name}"]
+        state[f"gamma__{self.name}"] += state[f"gammadot__{self.name}"]*dt
         for axis in AXES:
             val = x if axis == "x" else 0
             state.set({f"f_{axis}__{self.name}": val})
