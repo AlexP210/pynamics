@@ -42,3 +42,6 @@ class SimpleBodyDrag(DynamicsParent):
             state.set({f"tau_{axis}__{self.name}": 0})
         return state
 
+class BodyDrag(DynamicsParent):
+    def __init__(self, model_path:str):
+        pass

@@ -9,7 +9,7 @@ import tqdm as tqdm
 
 from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
-from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce
+from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity 
 
 class BoAtSim:
     def __init__(
@@ -46,12 +46,14 @@ class BoAtSim:
         ] + [
             "t"
         ]
-              
+
     def step(self, dt):
         """
-        Steps the simulation by `self._state["dt"]` using forward euler.
+        Steps the simulation by `self._state["dt"]`.
         """
-        # Apply the dynamics on the state
+        # Apply the dynamics on the state, adds forces, torques, and other
+        # intermediate values calculated by dynamics modules based on the
+        # current state.
         for dynamics_module in self.dynamics:
             self.state = dynamics_module(self.state, dt)
 
@@ -133,6 +135,7 @@ if __name__ == "__main__":
             "r_x__boat": 0, 
             "r_y__boat": 0,
             "r_z__boat": 0,
+            "r_z__water": 0,
             "v_x__boat": 0,
             "v_y__boat": 0, 
             "v_z__boat": 0,
@@ -148,11 +151,11 @@ if __name__ == "__main__":
             "alpha_x__boat": 0, 
             "alpha_y__boat": 0, 
             "alpha_z__boat": 0,
-            "m__boat": 1,
+            "m__boat": 1000,
             "I_xx__boat": 1,
             "I_yy__boat": 1,
             "I_zz__boat": 1,
-            "rho": 1000,
+            "rho__water": 1000,
             "v_x__water": 0,
             "v_y__water": 0, 
             "v_z__water": 0,
@@ -160,21 +163,37 @@ if __name__ == "__main__":
             "gammadot__waterwheel": 0.01,
         }), 
         dynamics=[
-            WaterWheel("waterwheel", 1, 1, 0.1, 2, 1, 1),
-            SimpleBodyDrag("bodydrag", 1, 1),
+            MeshBuoyancy(
+                name="buoyancy", 
+                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/buoyant_volume.obj"
+            ),
+            MeshGravity(
+                name="gravity", 
+                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj"
+            ),
         ]
     )
 
     # Run the sim
-    sim.simulate(delta_t=3, dt=0.001, verbose=True)
+    sim.simulate(delta_t=20, dt=0.001, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
     # Plot the results
-    plt.plot(data["t"], data["f_x__waterwheel"], label="f_x__waterwheel")
-    plt.plot(data["t"], data["f_x__bodydrag"], label="f_x__bodydrag")
-    plt.plot(data["t"], data["f_x__total"], label="f_x__total")
-    plt.title("Forces During Basic Bo-At Sim")
+    plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
+    plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
     plt.xlabel("Time (s)")
     plt.ylabel("Force (N)")
+    plt.legend()
+    plt.show()
+
+    plt.plot(data["t"], data["buoyancy__submerged_volume"], label="submerged_volume")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Submerged Volume (m^3)")
+    plt.legend()
+    plt.show()
+
+    plt.plot(data["t"], data["r_z__boat"], label="r_z__boat")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Position (m)")
     plt.legend()
     plt.show()
