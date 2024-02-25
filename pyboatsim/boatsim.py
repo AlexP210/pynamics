@@ -9,7 +9,8 @@ import tqdm as tqdm
 
 from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
-from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity 
+from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity
+from pyboatsim.math import linalg
 
 class BoAtSim:
     def __init__(
@@ -44,8 +45,52 @@ class BoAtSim:
         ] + [
             f"I_{axis}{axis}__boat" for axis in AXES
         ] + [
+            f"c_{axis}__boat" for axis in AXES
+        ] + [
             "t"
         ]
+
+    def _compute_accelerations(self):
+        # Force and Moment
+        F = np.matrix([self.state[f"f_{axis}__total"] for axis in AXES]).T
+        T = np.matrix([self.state[f"tau_{axis}__total"] for axis in AXES]).T
+        FT = np.block([
+            [F,],
+            [T,],
+        ])
+        # Angular velocity
+        w = np.matrix([self.state[f"omega_{axis}__boat"] for axis in AXES]).T
+        w_x = linalg.cross_product_matrix(w)
+        # Mass properties
+        I_cm = np.array([
+            [self.state["I_xx__boat"], self.state["I_xy__boat"],  self.state["I_xz__boat"]],
+            [self.state["I_yx__boat"], self.state["I_yy__boat"],  self.state["I_yz__boat"]],
+            [self.state["I_zx__boat"], self.state["I_zy__boat"],  self.state["I_zz__boat"]],
+        ])
+        m = self.state["m__boat"]
+        c = np.matrix([self.state[f"c_{axis}__boat"] for axis in AXES]).T
+        c_x = linalg.cross_product_matrix(c)
+
+        # Identity matrix
+        I3 = np.eye(3)
+
+        # Assemble the matrices from https://en.wikipedia.org/wiki/Newton%E2%80%93Euler_equations#Any_reference_frame
+        A = np.block([
+            [m*I3, -m*c_x],
+            [m*c_x, I_cm - m*c_x@c_x]
+        ])
+        B = np.block([
+            [m*w_x@w_x@c,],
+            [w_x@(I_cm - m*c_x@c_x)@w]
+        ])
+
+        accelerations = np.linalg.inv(A)*(FT - B)
+        
+        for idx, axis in enumerate(AXES):
+            self.state[f"a_{axis}__boat"] = accelerations[idx, 0]
+            self.state[f"alpha_{axis}__boat"] = accelerations[2+idx, 0]
+
+        return 
 
     def step(self, dt):
         """
@@ -56,8 +101,6 @@ class BoAtSim:
         # current state.
         for dynamics_module in self.dynamics:
             self.state = dynamics_module(self.state, dt)
-
-        # For each axis, apply the dynamics & update the state
         for axis in AXES:
             # Calculate the total force & moment by adding all the "f_"  and
             # "tau_" labels in the state dictionary
@@ -71,19 +114,13 @@ class BoAtSim:
                     ])
                 }
             )
-            # Calculate the linear & angular acceleration from the total
-            # force and torque (TODO: Generalize this beyond principal co-
-            # ordinate system)
-            self.state.set(
-                partial_state_dictionary={
-                    f"a_{axis}__boat": self.state[f"f_{axis}__total"] / self.state["m__boat"],
-                    f"alpha_{axis}__boat": self.state[f"tau_{axis}__total"] / self.state[f"I_{axis}{axis}__boat"]
-                }
-            )
+
+        # Solve Newton-Euler equations to calculate the linear and angular accelerations
+        # in the state dictionary
+        self._compute_accelerations()
         
         # Add the state to the history
         self.history.append(self.state.get())
-        
         # Create a new state to store the next update
         next_state = self.state.copy()
 
@@ -153,8 +190,17 @@ if __name__ == "__main__":
             "alpha_z__boat": 0,
             "m__boat": 1000,
             "I_xx__boat": 1,
+            "I_xy__boat": 0,
+            "I_xz__boat": 0,
+            "I_yx__boat": 0,
             "I_yy__boat": 1,
+            "I_yz__boat": 0,
+            "I_zx__boat": 0,
+            "I_zy__boat": 0,
             "I_zz__boat": 1,
+            "c_x__boat": 1,
+            "c_y__boat": 1,
+            "c_z__boat": 1,
             "rho__water": 1000,
             "v_x__water": 0,
             "v_y__water": 0, 
@@ -165,11 +211,11 @@ if __name__ == "__main__":
         dynamics=[
             MeshBuoyancy(
                 name="buoyancy", 
-                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/buoyant_volume.obj"
+                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj"
             ),
             MeshGravity(
                 name="gravity", 
-                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj"
+                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj"
             ),
         ]
     )

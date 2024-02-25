@@ -23,11 +23,6 @@ class MeshBuoyancy(DynamicsParent):
             force="mesh"
         )
         self.buoyancy_model.merge_vertices()
-        # self.buoyancy_model.fix_normals()
-        # self.buoyancy_model.subdivide_to_size(
-        #     max_edge=0.01,
-        #     max_iter=10
-        # )
         if not self.buoyancy_model.is_watertight:
             raise ValueError("Buoyant volume mesh is not watertight.")
 
@@ -86,16 +81,13 @@ class MeshBuoyancy(DynamicsParent):
             force = np.array([0, 0, water_mass*9.81])
             point_of_application = submerged.center_mass
             torque = np.cross(point_of_application, force)
-            # force = np.array([0, 0, 0])
-            # torque = np.array([0, 0, 0])
 
         # Update the state dict
         for axis_idx in range(len(AXES)):
             axis = AXES[axis_idx]
             state.set({
                 f"f_{axis}__{self.name}": force[axis_idx],
-                # f"tau_{axis}__{self.name}": torque[axis_idx]
-                f"tau_{axis}__{self.name}": 0
+                f"tau_{axis}__{self.name}": torque[axis_idx]
             })
 
         return state
