@@ -46,12 +46,14 @@ class BoAtSim:
         ] + [
             "t"
         ]
-              
+
     def step(self, dt):
         """
-        Steps the simulation by `self._state["dt"]` using forward euler.
+        Steps the simulation by `self._state["dt"]`.
         """
-        # Apply the dynamics on the state, adds 
+        # Apply the dynamics on the state, adds forces, torques, and other
+        # intermediate values calculated by dynamics modules based on the
+        # current state.
         for dynamics_module in self.dynamics:
             self.state = dynamics_module(self.state, dt)
 
@@ -161,13 +163,14 @@ if __name__ == "__main__":
             "gammadot__waterwheel": 0.01,
         }), 
         dynamics=[
-            # WaterWheel("waterwheel", 1, 1, 0.1, 2, 1, 1),
-            # SimpleBodyDrag("bodydrag", 1, 1),
             MeshBuoyancy(
-                "buoyancy", 
-                "/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj", 
-                "/home/alex/Projects/PyBoAtSim/models/cup/buoyant_volume.obj"),
-            MeshGravity("gravity", "/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj"),
+                name="buoyancy", 
+                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/buoyant_volume.obj"
+            ),
+            MeshGravity(
+                name="gravity", 
+                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj"
+            ),
         ]
     )
 
@@ -183,7 +186,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    plt.plot(data["t"], data["sub_vol"], label="sub_vol")
+    plt.plot(data["t"], data["buoyancy__submerged_volume"], label="submerged_volume")
     plt.xlabel("Time (s)")
     plt.ylabel("Submerged Volume (m^3)")
     plt.legend()

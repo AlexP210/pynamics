@@ -11,29 +11,24 @@ class MeshBuoyancy(DynamicsParent):
     def __init__(
             self,
             name: str,
-            model_path: str,
-            buoyant_model_path: str
+            buoyancy_model_path: str
         ):
         super().__init__(name=name)
         self.dynamics_parameters = {
-            "mesh": trimesh.load(
-                file_obj=model_path, 
-                file_type=model_path.split(".")[-1], 
-                force="mesh"
-            ),
-            "buoyant_volume": trimesh.load(
-                file_obj=buoyant_model_path, 
-                file_type=buoyant_model_path.split(".")[-1], 
-                force="mesh"
-            ),
+            "buoyancy_model_path": buoyancy_model_path
         }
-        self.dynamics_parameters["mesh"].merge_vertices()
-        self.dynamics_parameters["mesh"].fix_normals()
-        if not self.dynamics_parameters["mesh"].is_watertight:
-            raise ValueError("Provided mesh is not watertight.")
-        self.dynamics_parameters["buoyant_volume"].merge_vertices()
-        self.dynamics_parameters["mesh"].fix_normals()
-        if not self.dynamics_parameters["buoyant_volume"].is_watertight:
+        self.buoyancy_model = trimesh.load(
+            file_obj=buoyancy_model_path, 
+            file_type=buoyancy_model_path.split(".")[-1], 
+            force="mesh"
+        )
+        self.buoyancy_model.merge_vertices()
+        # self.buoyancy_model.fix_normals()
+        # self.buoyancy_model.subdivide_to_size(
+        #     max_edge=0.01,
+        #     max_iter=10
+        # )
+        if not self.buoyancy_model.is_watertight:
             raise ValueError("Buoyant volume mesh is not watertight.")
 
     def required_state_labels(self):
@@ -52,7 +47,6 @@ class MeshBuoyancy(DynamicsParent):
         # Array representation of position & rotation
         theta = np.array([state[f"theta_{axis}__boat"] for axis in AXES])
         r = np.array([state[f"r_{axis}__boat"] for axis in AXES])
-        # print(r)
 
         # Transform the mesh
         translation_matrix = trimesh.transformations.translation_matrix(direction=r)
@@ -67,33 +61,31 @@ class MeshBuoyancy(DynamicsParent):
                 rotation_matrix
         )
 
-        buoyant_volume:trimesh.Trimesh = self.dynamics_parameters["buoyant_volume"].copy()
-        buoyant_volume.apply_transform(
+        buoyancy_model_temp:trimesh.Trimesh = self.buoyancy_model.copy()
+        buoyancy_model_temp.apply_transform(
             matrix=transformation_matrix
         )
-        submerged:trimesh.Trimesh = buoyant_volume.slice_plane(
+        submerged:trimesh.Trimesh = buoyancy_model_temp.slice_plane(
             plane_origin=(0,0,0),
             plane_normal=(0,0,-1),
             cap=True
         )
-        # Find the submerged volume
-        # submerged = self._submerged_volume(buoyant_volume, state, axis=2)
+
         # Calculate buoyancy
         if submerged.is_empty:
             force = np.array([0, 0, 0])
             torque = np.array([0, 0, 0])
-            state["sub_vol"] = 0
+            state[f"{self.name}__submerged_volume"] = 0
         else:
-            submerged_hull = submerged
-            if not submerged_hull.is_watertight:
+            if not submerged.is_watertight:
                 raise ValueError("Convex hull of submerged volume is not watertight.")
-            submerged_hull.rezero()
-            water_volume = submerged_hull.volume
+            # submerged_hull.rezero()
+            water_volume = submerged.volume
+            state[f"{self.name}__submerged_volume"] = water_volume
             water_mass = water_volume * state["rho__water"]
             force = np.array([0, 0, water_mass*9.81])
-            point_of_application = submerged_hull.center_mass
+            point_of_application = submerged.center_mass
             torque = np.cross(point_of_application, force)
-            state["sub_vol"] = water_volume
             # force = np.array([0, 0, 0])
             # torque = np.array([0, 0, 0])
 
@@ -107,29 +99,3 @@ class MeshBuoyancy(DynamicsParent):
             })
 
         return state
-
-    def _submerged_volume(self, buoyant_volume, state, axis=2):
-        mesh = buoyant_volume
-        min_bound, max_bound = mesh.bounds
-
-        if max_bound[axis] <= state["r_z__water"]: return mesh
-        elif min_bound[axis] >= state["r_z__water"]: return trimesh.Trimesh()
-
-        min_bound = np.array(min_bound)
-        max_bound = np.array(max_bound)
-
-        center = (min_bound + max_bound) / 2
-
-        cropping_box_max_bound = max_bound.copy()
-        cropping_box_max_bound[axis] = state["r_z__water"]
-        cropping_box_min_bound = min_bound.copy()
-        cropping_box_scale = cropping_box_max_bound - cropping_box_min_bound
-        cropping_box_center = center.copy()
-        cropping_box_center[axis] = min_bound[axis] + 0.5*cropping_box_scale[axis]
-
-        transform = np.eye(4, 4)
-        transform[0:3, 3] = cropping_box_center
-        cropping_box = trimesh.primitives.Box(extents=cropping_box_scale, transform=transform)
-        intersection = trimesh.boolean.intersection([mesh, cropping_box], check_volume=True)
-
-        return intersection
