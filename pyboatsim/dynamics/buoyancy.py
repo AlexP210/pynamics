@@ -50,7 +50,8 @@ class MeshBuoyancy(DynamicsParent):
         else:
             rotation_matrix = trimesh.transformations.rotation_matrix(
                 direction=theta/np.linalg.norm(theta),
-                angle=np.linalg.norm(theta))
+                angle=np.linalg.norm(theta)
+            )
         transformation_matrix = trimesh.transformations.concatenate_matrices(
                 translation_matrix,
                 rotation_matrix
@@ -66,10 +67,19 @@ class MeshBuoyancy(DynamicsParent):
             cap=True
         )
 
+        # Matrix representations of position & rotation
+        theta_m = np.matrix(theta).T
+        r_m = np.matrix(r).T
+        c_m = np.matrix([
+            [state["c_x__boat"],],
+            [state["c_y__boat"],],
+            [state["c_z__boat"],],
+        ])
+
         # Calculate buoyancy
         if submerged.is_empty:
-            force = np.array([0, 0, 0])
-            torque = np.array([0, 0, 0])
+            force__worldframe = np.matrix([0, 0, 0]).T
+            torque = np.matrix([0, 0, 0]).T
             state[f"{self.name}__submerged_volume"] = 0
         else:
             if not submerged.is_watertight:
@@ -78,16 +88,22 @@ class MeshBuoyancy(DynamicsParent):
             water_volume = submerged.volume
             state[f"{self.name}__submerged_volume"] = water_volume
             water_mass = water_volume * state["rho__water"]
-            force = np.array([0, 0, water_mass*9.81])
-            point_of_application = submerged.center_mass
-            torque = np.cross(point_of_application, force)
+            force__worldframe = np.matrix([0, 0, water_mass*9.81]).T
+            point_of_application__worldframe = np.matrix(submerged.center_mass).T
+            force__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], force__worldframe)
+            point_of_application__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], point_of_application__worldframe - r_m)
+            point_of_application__comframe = point_of_application__bodyframe - c_m
+            torque = np.cross(
+                force__bodyframe.T,
+                point_of_application__comframe.T
+            ).T
 
         # Update the state dict
         for axis_idx in range(len(AXES)):
             axis = AXES[axis_idx]
             state.set({
-                f"f_{axis}__{self.name}": force[axis_idx],
-                f"tau_{axis}__{self.name}": torque[axis_idx]
+                f"f_{axis}__{self.name}": force__worldframe[axis_idx,0],
+                f"tau_{axis}__{self.name}": torque[axis_idx,0]
             })
 
         return state

@@ -55,14 +55,32 @@ class MeshGravity(DynamicsParent):
             matrix=transformation_matrix
         )
 
-        force = np.array([0, 0, -state["m__boat"] * 9.81])
-        point_of_application = self.gravity_model.center_mass
-        torque = np.cross(point_of_application, force)
+        # Matrix representations of position & rotation
+        theta_m = np.matrix(theta).T
+        r_m = np.matrix(r).T
+
+        force__worldframe = np.matrix([0, 0, -state["m__boat"] * 9.81]).T
+        force__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], force__worldframe)
+        point_of_application__bodyframe = np.matrix([
+            [state["c_x__boat"],],
+            [state["c_y__boat"],],
+            [state["c_z__boat"],],
+        ])
+        point_of_application__comframe = np.matrix([
+            [0,],
+            [0,],
+            [0,],
+        ])
+        torque = np.cross(
+            force__bodyframe.T,
+            point_of_application__comframe.T
+        ).T
+
         for axis_idx in range(len(AXES)):
             axis = AXES[axis_idx]
             state.set({
-                f"f_{axis}__{self.name}": force[axis_idx],
-                f"tau_{axis}__{self.name}": torque[axis_idx]
+                f"f_{axis}__{self.name}": force__worldframe[axis_idx,0],
+                f"tau_{axis}__{self.name}": torque[axis_idx,0]
             })
 
         return state

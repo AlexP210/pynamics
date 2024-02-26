@@ -70,25 +70,32 @@ class BoAtSim:
         m = self.state["m__boat"]
         c = np.matrix([self.state[f"c_{axis}__boat"] for axis in AXES]).T
         c_x = linalg.cross_product_matrix(c)
-
         # Identity matrix
         I3 = np.eye(3)
 
         # Assemble the matrices from https://en.wikipedia.org/wiki/Newton%E2%80%93Euler_equations#Any_reference_frame
+        # A = np.block([
+        #     [m*I3, -m*c_x],
+        #     [m*c_x, I_cm - m*c_x@c_x]
+        # ])
         A = np.block([
-            [m*I3, -m*c_x],
-            [m*c_x, I_cm - m*c_x@c_x]
+            [m*I3, np.zeros((3,3))],
+            [np.zeros((3,3)), I_cm]
         ])
+        # B = np.block([
+        #     [m*w_x@w_x@c,],
+        #     [w_x@(I_cm - m*c_x@c_x)@w]
+        # ])
         B = np.block([
-            [m*w_x@w_x@c,],
-            [w_x@(I_cm - m*c_x@c_x)@w]
+            [np.zeros((3,1)),],
+            [w_x@I_cm@w,],
         ])
 
         accelerations = np.linalg.inv(A)*(FT - B)
         
         for idx, axis in enumerate(AXES):
             self.state[f"a_{axis}__boat"] = accelerations[idx, 0]
-            self.state[f"alpha_{axis}__boat"] = accelerations[2+idx, 0]
+            self.state[f"alpha_{axis}__boat"] = accelerations[3+idx, 0]
 
         return 
 
@@ -189,18 +196,18 @@ if __name__ == "__main__":
             "alpha_y__boat": 0, 
             "alpha_z__boat": 0,
             "m__boat": 1000,
-            "I_xx__boat": 1,
+            "I_xx__boat": 100,
             "I_xy__boat": 0,
             "I_xz__boat": 0,
             "I_yx__boat": 0,
-            "I_yy__boat": 1,
+            "I_yy__boat": 100,
             "I_yz__boat": 0,
             "I_zx__boat": 0,
             "I_zy__boat": 0,
-            "I_zz__boat": 1,
-            "c_x__boat": 1,
-            "c_y__boat": 1,
-            "c_z__boat": 1,
+            "I_zz__boat": 100,
+            "c_x__boat": 0,
+            "c_y__boat": 0,
+            "c_z__boat": 0.2,
             "rho__water": 1000,
             "v_x__water": 0,
             "v_y__water": 0, 
@@ -221,25 +228,52 @@ if __name__ == "__main__":
     )
 
     # Run the sim
-    sim.simulate(delta_t=20, dt=0.001, verbose=True)
+    sim.simulate(delta_t=50, dt=0.001, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
     # Plot the results
-    plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
-    plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Force (N)")
-    plt.legend()
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    for row_idx, force_moment in enumerate(["f", "tau"]):
+        for col_idx, axis in enumerate(AXES):
+            for dynamics_source in sim.dynamics_names:
+                ax[row_idx, col_idx].plot(
+                    data["t"], 
+                    data[f"{force_moment}_{axis}__{dynamics_source}"], 
+                    label=f"{force_moment}_{axis}__{dynamics_source}"
+                )
+            ax[row_idx, col_idx].set_xlabel("Time (s)")
+            if force_moment == "f": ylabel = "Force (N)"
+            elif force_moment == "tau": ylabel = "Moment (Nm)"
+            ax[row_idx, col_idx].set_ylabel(ylabel)
+            ax[row_idx, col_idx].legend()
     plt.show()
 
-    plt.plot(data["t"], data["buoyancy__submerged_volume"], label="submerged_volume")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Submerged Volume (m^3)")
-    plt.legend()
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    for row_idx, position_orientation in enumerate(["a", "alpha"]):
+        for col_idx, axis in enumerate(AXES):
+            ax[row_idx, col_idx].plot(
+                data["t"], 
+                data[f"{position_orientation}_{axis}__boat"], 
+                label=f"{position_orientation}_{axis}__boat"
+            )
+            ax[row_idx, col_idx].set_xlabel("Time (s)")
+            if position_orientation == "a": ylabel = "Linear Acceleration (m/s^2)"
+            elif position_orientation == "alpha": ylabel = "Angular Acceleration (rad/s^2)"
+            ax[row_idx, col_idx].set_ylabel(ylabel)
+            ax[row_idx, col_idx].legend()
     plt.show()
 
-    plt.plot(data["t"], data["r_z__boat"], label="r_z__boat")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Position (m)")
-    plt.legend()
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    for row_idx, position_orientation in enumerate(["r", "theta"]):
+        for col_idx, axis in enumerate(AXES):
+            ax[row_idx, col_idx].plot(
+                data["t"], 
+                data[f"{position_orientation}_{axis}__boat"], 
+                label=f"{position_orientation}_{axis}__boat"
+            )
+            ax[row_idx, col_idx].set_xlabel("Time (s)")
+            if position_orientation == "r": ylabel = "Position (m)"
+            elif position_orientation == "theta": ylabel = "Angle (rad)"
+            ax[row_idx, col_idx].set_ylabel(ylabel)
+            ax[row_idx, col_idx].legend()
     plt.show()
