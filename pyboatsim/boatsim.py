@@ -154,7 +154,7 @@ if __name__ == "__main__":
             "alpha_x__boat": 0, 
             "alpha_y__boat": 0, 
             "alpha_z__boat": 0,
-            "m__boat": 1000,
+            "m__boat": 100,
             "I_xx__boat": 1,
             "I_yy__boat": 1,
             "I_zz__boat": 1,
@@ -178,6 +178,7 @@ if __name__ == "__main__":
     )
 
     # Run the sim
+    print("Running simulation")
     sim.simulate(delta_t=10, dt=0.001, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
@@ -189,7 +190,8 @@ if __name__ == "__main__":
             force="mesh"
         )
     vis = Visualizer(boatsim=sim, visualization_model=vis_model)
-    vis.animate()
+    print("Saving animation")
+    vis.animate(save_path="Flip.mp4")
 
     # # Plot the results
     # plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
