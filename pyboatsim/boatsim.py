@@ -123,7 +123,10 @@ class BoAtSim:
                 self.step(dt=dt)
     
     def save_history(self, file_path:str):
-        pd.DataFrame.from_dict(self.history).to_csv(file_path)
+        self.get_history_as_dataframe().to_csv(file_path)
+
+    def get_history_as_dataframe(self):
+        return pd.DataFrame.from_dict(self.history)
 
 if __name__ == "__main__":
 
@@ -134,7 +137,7 @@ if __name__ == "__main__":
             "t": 0,
             "r_x__boat": 0, 
             "r_y__boat": 0,
-            "r_z__boat": 0,
+            "r_z__boat": 1,
             "r_z__water": 0,
             "v_x__boat": 0,
             "v_y__boat": 0, 
@@ -142,7 +145,7 @@ if __name__ == "__main__":
             "a_x__boat": 0, 
             "a_y__boat": 0, 
             "a_z__boat": 0, 
-            "theta_x__boat": 0, 
+            "theta_x__boat": np.pi/4, 
             "theta_y__boat": 0, 
             "theta_z__boat": 0, 
             "omega_x__boat": 0, 
@@ -175,25 +178,35 @@ if __name__ == "__main__":
     )
 
     # Run the sim
-    sim.simulate(delta_t=20, dt=0.001, verbose=True)
+    sim.simulate(delta_t=10, dt=0.001, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
-    # Plot the results
-    plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
-    plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Force (N)")
-    plt.legend()
-    plt.show()
+    from visualizer import Visualizer
+    import trimesh
+    vis_model = trimesh.load(
+            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj", 
+            file_type="obj", 
+            force="mesh"
+        )
+    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
+    vis.animate()
 
-    plt.plot(data["t"], data["buoyancy__submerged_volume"], label="submerged_volume")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Submerged Volume (m^3)")
-    plt.legend()
-    plt.show()
+    # # Plot the results
+    # plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
+    # plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Force (N)")
+    # plt.legend()
+    # plt.show()
 
-    plt.plot(data["t"], data["r_z__boat"], label="r_z__boat")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Position (m)")
-    plt.legend()
-    plt.show()
+    # plt.plot(data["t"], data["buoyancy__submerged_volume"], label="submerged_volume")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Submerged Volume (m^3)")
+    # plt.legend()
+    # plt.show()
+
+    # plt.plot(data["t"], data["r_z__boat"], label="r_z__boat")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Position (m)")
+    # plt.legend()
+    # plt.show()

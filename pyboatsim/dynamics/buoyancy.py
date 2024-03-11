@@ -94,8 +94,8 @@ class MeshBuoyancy(DynamicsParent):
             axis = AXES[axis_idx]
             state.set({
                 f"f_{axis}__{self.name}": force[axis_idx],
-                # f"tau_{axis}__{self.name}": torque[axis_idx]
-                f"tau_{axis}__{self.name}": 0
+                f"tau_{axis}__{self.name}": torque[axis_idx]
+                # f"tau_{axis}__{self.name}": 0
             })
 
         return state
