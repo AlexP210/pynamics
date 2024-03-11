@@ -179,7 +179,10 @@ class BoAtSim:
                 self.step(dt=dt)
     
     def save_history(self, file_path:str):
-        pd.DataFrame.from_dict(self.history).to_csv(file_path)
+        self.get_history_as_dataframe().to_csv(file_path)
+
+    def get_history_as_dataframe(self):
+        return pd.DataFrame.from_dict(self.history)
 
 if __name__ == "__main__":
 
@@ -198,7 +201,7 @@ if __name__ == "__main__":
             "a_x__boat": 0, 
             "a_y__boat": 0, 
             "a_z__boat": 0, 
-            "theta_x__boat": 0, 
+            "theta_x__boat": np.pi/4, 
             "theta_y__boat": 0, 
             "theta_z__boat": 0, 
             "omega_x__boat": 0, 
@@ -207,7 +210,7 @@ if __name__ == "__main__":
             "alpha_x__boat": 0, 
             "alpha_y__boat": 0, 
             "alpha_z__boat": 0,
-            "m__boat": 1000,
+            "m__boat": 100,
             "I_xx__boat": (1000/12)*(2**2 + 0.4**2),
             "I_xy__boat": 0,
             "I_xz__boat": 0,
@@ -245,25 +248,28 @@ if __name__ == "__main__":
     )
 
     # Run the sim
+    print("Running simulation")
     sim.simulate(delta_t=10, dt=0.001, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
-    # Plot the results
-    fig, ax = plt.subplots(nrows=2, ncols=3)
-    for row_idx, force_moment in enumerate(["f", "tau"]):
-        for col_idx, axis in enumerate(AXES):
-            for dynamics_source in sim.dynamics_names:
-                ax[row_idx, col_idx].plot(
-                    data["t"], 
-                    data[f"{force_moment}_{axis}__{dynamics_source}"], 
-                    label=f"{force_moment}_{axis}__{dynamics_source}"
-                )
-            ax[row_idx, col_idx].set_xlabel("Time (s)")
-            if force_moment == "f": ylabel = "Force (N)"
-            elif force_moment == "tau": ylabel = "Moment (Nm)"
-            ax[row_idx, col_idx].set_ylabel(ylabel)
-            ax[row_idx, col_idx].legend()
-    plt.show()
+    from visualizer import Visualizer
+    import trimesh
+    vis_model = trimesh.load(
+            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj", 
+            file_type="obj", 
+            force="mesh"
+        )
+    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
+    print("Saving animation")
+    vis.animate(save_path="Flip.mp4")
+
+    # # Plot the results
+    # plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
+    # plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Force (N)")
+    # plt.legend()
+    # plt.show()
 
     fig, ax = plt.subplots(nrows=2, ncols=3)
     for row_idx, position_orientation in enumerate(["v", "omega"]):
