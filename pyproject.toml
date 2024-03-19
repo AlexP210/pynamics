@@ -1,0 +1,4 @@
+[project]
+name = "pyboatsim"
+version = "0.1.0"
+description = "A simple python-based simulator for the Bo-At project"
