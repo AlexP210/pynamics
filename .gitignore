@@ -4,3 +4,4 @@ pyboatsim.egg-info
 .*
 **/*.png
 **/*.csv
+**.mp4

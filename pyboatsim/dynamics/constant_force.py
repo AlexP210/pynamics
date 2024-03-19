@@ -38,9 +38,4 @@ class ConstantForce(DynamicsParent):
                 f"tau_{axis}__{self.name}": self.dynamics_parameters[f"tau_{axis}"]
             })
 
-<<<<<<< HEAD
         return state
-=======
-        return state
-
->>>>>>> develop

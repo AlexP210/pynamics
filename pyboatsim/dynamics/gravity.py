@@ -36,6 +36,13 @@ class MeshGravity(DynamicsParent):
         # Array representation of position & rotation
         theta = np.array([state[f"theta_{axis}__boat"] for axis in AXES])
         r = np.array([state[f"r_{axis}__boat"] for axis in AXES])
+        c = np.array([state[f"c_{axis}__boat"] for axis in AXES])
+
+        # Copy of the buoyancy model to move around
+        gravity_model_temp:trimesh.Trimesh = self.gravity_model.copy()
+        # Transform it to the CM frame
+        c_translation_matrix = trimesh.transformations.translation_matrix(direction=-c)
+        gravity_model_temp.apply_transform(c_translation_matrix)
 
         # Transform the mesh
         translation_matrix = trimesh.transformations.translation_matrix(direction=r)
@@ -50,19 +57,38 @@ class MeshGravity(DynamicsParent):
                 rotation_matrix
         )
 
-        gravity_model_temp:trimesh.Trimesh = self.gravity_model.copy()
         gravity_model_temp.apply_transform(
             matrix=transformation_matrix
         )
+        gravity_model_temp.apply_transform(-c_translation_matrix)
+        
+        # Matrix representations of position & rotation
+        theta_m = np.matrix(theta).T
+        r_m = np.matrix(r).T
 
-        force = np.array([0, 0, -state["m__boat"] * 9.81])
-        point_of_application = self.gravity_model.center_mass
-        torque = np.cross(point_of_application, force)
+        force__worldframe = np.matrix([0, 0, -state["m__boat"] * 9.81]).T
+        force__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], force__worldframe)
+        force__comframe = force__bodyframe
+        point_of_application__bodyframe = np.matrix([
+            [state["c_x__boat"],],
+            [state["c_y__boat"],],
+            [state["c_z__boat"],],
+        ])
+        point_of_application__comframe = np.matrix([
+            [0,],
+            [0,],
+            [0,],
+        ])
+        torque__comframe = np.cross(
+            force__comframe.T,
+            point_of_application__comframe.T
+        ).T
+
         for axis_idx in range(len(AXES)):
             axis = AXES[axis_idx]
             state.set({
-                f"f_{axis}__{self.name}": force[axis_idx],
-                f"tau_{axis}__{self.name}": torque[axis_idx]
+                f"f_{axis}__{self.name}": force__worldframe[axis_idx,0],
+                f"tau_{axis}__{self.name}": torque__comframe[axis_idx,0]
             })
 
         return state

@@ -9,7 +9,8 @@ import tqdm as tqdm
 
 from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
-from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity 
+from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity, MeshBodyDrag
+from pyboatsim.math import linalg
 
 class BoAtSim:
     def __init__(
@@ -44,8 +45,59 @@ class BoAtSim:
         ] + [
             f"I_{axis}{axis}__boat" for axis in AXES
         ] + [
+            f"c_{axis}__boat" for axis in AXES
+        ] + [
             "t"
         ]
+
+    def _compute_accelerations(self):
+        # Force and Moment
+        F = np.matrix([self.state[f"f_{axis}__total"] for axis in AXES]).T
+        T = np.matrix([self.state[f"tau_{axis}__total"] for axis in AXES]).T
+        FT = np.block([
+            [F,],
+            [T,],
+        ])
+        # Angular velocity
+        w = np.matrix([self.state[f"omega_{axis}__boat"] for axis in AXES]).T
+        w_x = linalg.cross_product_matrix(w)
+        # Mass properties
+        I_cm = np.array([
+            [self.state["I_xx__boat"], self.state["I_xy__boat"],  self.state["I_xz__boat"]],
+            [self.state["I_yx__boat"], self.state["I_yy__boat"],  self.state["I_yz__boat"]],
+            [self.state["I_zx__boat"], self.state["I_zy__boat"],  self.state["I_zz__boat"]],
+        ])
+        m = self.state["m__boat"]
+        c = np.matrix([self.state[f"c_{axis}__boat"] for axis in AXES]).T
+        c_x = linalg.cross_product_matrix(c)
+        # Identity matrix
+        I3 = np.eye(3)
+
+        # Assemble the matrices from https://en.wikipedia.org/wiki/Newton%E2%80%93Euler_equations#Any_reference_frame
+        # A = np.block([
+        #     [m*I3, -m*c_x],
+        #     [m*c_x, I_cm - m*c_x@c_x]
+        # ])
+        A = np.block([
+            [m*I3, np.zeros((3,3))],
+            [np.zeros((3,3)), I_cm]
+        ])
+        # B = np.block([
+        #     [m*w_x@w_x@c,],
+        #     [w_x@(I_cm - m*c_x@c_x)@w]
+        # ])
+        B = np.block([
+            [np.zeros((3,1)),],
+            [w_x@I_cm@w,],
+        ])
+
+        accelerations = np.linalg.inv(A)*(FT - B)
+        
+        for idx, axis in enumerate(AXES):
+            self.state[f"a_{axis}__boat"] = accelerations[idx, 0]
+            self.state[f"alpha_{axis}__boat"] = accelerations[3+idx, 0]
+
+        return 
 
     def step(self, dt):
         """
@@ -56,8 +108,6 @@ class BoAtSim:
         # current state.
         for dynamics_module in self.dynamics:
             self.state = dynamics_module(self.state, dt)
-
-        # For each axis, apply the dynamics & update the state
         for axis in AXES:
             # Calculate the total force & moment by adding all the "f_"  and
             # "tau_" labels in the state dictionary
@@ -71,31 +121,37 @@ class BoAtSim:
                     ])
                 }
             )
-            # Calculate the linear & angular acceleration from the total
-            # force and torque (TODO: Generalize this beyond principal co-
-            # ordinate system)
-            self.state.set(
-                partial_state_dictionary={
-                    f"a_{axis}__boat": self.state[f"f_{axis}__total"] / self.state["m__boat"],
-                    f"alpha_{axis}__boat": self.state[f"tau_{axis}__total"] / self.state[f"I_{axis}{axis}__boat"]
-                }
-            )
+
+        # Solve Newton-Euler equations to calculate the linear and angular accelerations
+        # in the state dictionary
+        self._compute_accelerations()
         
         # Add the state to the history
         self.history.append(self.state.get())
-        
         # Create a new state to store the next update
         next_state = self.state.copy()
 
         # For each axis, update the position and velocities to be used in the
         # next state
+        if len(self.history) < 1: raise ValueError("Why is self.history empty? For shame.")
         for axis in AXES:
-            # Update the velocities
-            next_state[f"v_{axis}__boat"] += self.state[f"a_{axis}__boat"]*dt
-            next_state[f"omega_{axis}__boat"] += self.state[f"alpha_{axis}__boat"]*dt
-            # Update the positions
-            next_state[f"r_{axis}__boat"] += 0.5*(self.state[f"v_{axis}__boat"] + next_state[f"v_{axis}__boat"])*dt
-            next_state[f"theta_{axis}__boat"] += 0.5*(self.state[f"omega_{axis}__boat"] + next_state[f"omega_{axis}__boat"])*dt
+            if len(self.history) == 1:
+                # Update the positions
+                next_state[f"r_{axis}__boat"] += self.state[f"v_{axis}__boat"]*dt + 0.5*next_state[f"a_{axis}__boat"]*dt**2
+                next_state[f"theta_{axis}__boat"] += self.state[f"omega_{axis}__boat"]*dt + 0.5*next_state[f"alpha_{axis}__boat"]*dt**2
+                next_state[f"v_{axis}__boat"] += self.state[f"a_{axis}__boat"] * dt
+                next_state[f"omega_{axis}__boat"] += self.state[f"alpha_{axis}__boat"] * dt
+            else:
+                # Update the positions
+                x_prev = self.history[-2]
+                lin = f"r_{axis}__boat"
+                ang = f"theta_{axis}__boat"
+                next_state[lin] = 2*self.state[lin] - x_prev[lin] + self.state[f"a_{axis}__boat"]*dt**2
+                next_state[ang] = 2*self.state[ang] - x_prev[ang] + self.state[f"alpha_{axis}__boat"]*dt**2
+                next_state[f"v_{axis}__boat"] = (next_state[lin] - x_prev[lin]) / (2*dt)
+                next_state[f"omega_{axis}__boat"] = (next_state[ang] - x_prev[ang]) / (2*dt)
+
+
         # Set the next state
         self.state = next_state
         self.state["t"] += dt
@@ -123,7 +179,10 @@ class BoAtSim:
                 self.step(dt=dt)
     
     def save_history(self, file_path:str):
-        pd.DataFrame.from_dict(self.history).to_csv(file_path)
+        self.get_history_as_dataframe().to_csv(file_path)
+
+    def get_history_as_dataframe(self):
+        return pd.DataFrame.from_dict(self.history)
 
 if __name__ == "__main__":
 
@@ -134,7 +193,7 @@ if __name__ == "__main__":
             "t": 0,
             "r_x__boat": 0, 
             "r_y__boat": 0,
-            "r_z__boat": 0,
+            "r_z__boat": 2,
             "r_z__water": 0,
             "v_x__boat": 0,
             "v_y__boat": 0, 
@@ -143,7 +202,7 @@ if __name__ == "__main__":
             "a_y__boat": 0, 
             "a_z__boat": 0, 
             "theta_x__boat": 0, 
-            "theta_y__boat": 0, 
+            "theta_y__boat": np.pi/4, 
             "theta_z__boat": 0, 
             "omega_x__boat": 0, 
             "omega_y__boat": 0, 
@@ -152,48 +211,68 @@ if __name__ == "__main__":
             "alpha_y__boat": 0, 
             "alpha_z__boat": 0,
             "m__boat": 1000,
-            "I_xx__boat": 1,
-            "I_yy__boat": 1,
-            "I_zz__boat": 1,
+            "I_xx__boat": (1000/12)*(2**2 + 0.4**2),
+            "I_xy__boat": 0,
+            "I_xz__boat": 0,
+            "I_yx__boat": 0,
+            "I_yy__boat": (1000/12)*(2**2 + 0.4**2),
+            "I_yz__boat": 0,
+            "I_zx__boat": 0,
+            "I_zy__boat": 0,
+            "I_zz__boat": (1000/12)*(2**2 + 2**2),
+            "c_x__boat": 0,
+            "c_y__boat": 0,
+            "c_z__boat": 0,
             "rho__water": 1000,
             "v_x__water": 0,
             "v_y__water": 0, 
             "v_z__water": 0,
             "gamma__waterwheel": 0,
-            "gammadot__waterwheel": 0.01,
+            "gammadot__waterwheel": 0.1,
         }), 
         dynamics=[
             MeshBuoyancy(
                 name="buoyancy", 
-                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/buoyant_volume.obj"
+                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj"
             ),
             MeshGravity(
                 name="gravity", 
-                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj"
+                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj"
             ),
+            MeshBodyDrag(
+                name="bodydrag",
+                bodydrag_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary_poked.obj"
+            )
         ]
     )
 
     # Run the sim
-    sim.simulate(delta_t=20, dt=0.001, verbose=True)
+    print("Running simulation")
+    sim.simulate(delta_t=30, dt=0.01, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
-    # Plot the results
-    plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
-    plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Force (N)")
-    plt.legend()
+    fig, ax = plt.subplots(nrows=2, ncols=3)
+    for row_idx, position_orientation in enumerate(["r", "theta"]):
+        for col_idx, axis in enumerate(AXES):
+            ax[row_idx, col_idx].plot(
+                data["t"], 
+                data[f"{position_orientation}_{axis}__boat"], 
+                label=f"{position_orientation}_{axis}__boat"
+            )
+            ax[row_idx, col_idx].set_xlabel("Time (s)")
+            if position_orientation == "r": ylabel = "Position (m)"
+            elif position_orientation == "theta": ylabel = "Angle (rad)"
+            ax[row_idx, col_idx].set_ylabel(ylabel)
+            ax[row_idx, col_idx].legend()
     plt.show()
 
-    plt.plot(data["t"], data["buoyancy__submerged_volume"], label="submerged_volume")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Submerged Volume (m^3)")
-    plt.legend()
-    plt.show()
-
-    plt.plot(data["t"], data["r_z__boat"], label="r_z__boat")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Position (m)")
-    plt.legend()
-    plt.show()
+    from visualizer import Visualizer
+    import trimesh
+    vis_model = trimesh.load(
+            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj", 
+            file_type="obj", 
+            force="mesh"
+        )
+    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
+    print("Saving animation")
+    vis.animate(save_path="Test.mp4", show_forces=True)

@@ -32,6 +32,7 @@ class DynamicsParent(abc.ABC):
             "Implement `required_state_labels()` in your `Dynamics` subclass."
             )
 
+
     def __call__(self, state:State, dt:float) -> float:
         """
         Handles checking if the passed `State` object contains all the required
