@@ -193,16 +193,16 @@ if __name__ == "__main__":
             "t": 0,
             "r_x__boat": 0, 
             "r_y__boat": 0,
-            "r_z__boat": -1,
+            "r_z__boat": 2,
             "r_z__water": 0,
-            "v_x__boat": 1,
+            "v_x__boat": 0,
             "v_y__boat": 0, 
             "v_z__boat": 0,
             "a_x__boat": 0, 
             "a_y__boat": 0, 
             "a_z__boat": 0, 
-            "theta_x__boat": np.pi/4, 
-            "theta_y__boat": 0, 
+            "theta_x__boat": 0, 
+            "theta_y__boat": np.pi/4, 
             "theta_z__boat": 0, 
             "omega_x__boat": 0, 
             "omega_y__boat": 0, 
@@ -210,7 +210,7 @@ if __name__ == "__main__":
             "alpha_x__boat": 0, 
             "alpha_y__boat": 0, 
             "alpha_z__boat": 0,
-            "m__boat": 100,
+            "m__boat": 1000,
             "I_xx__boat": (1000/12)*(2**2 + 0.4**2),
             "I_xy__boat": 0,
             "I_xz__boat": 0,
@@ -228,7 +228,7 @@ if __name__ == "__main__":
             "v_y__water": 0, 
             "v_z__water": 0,
             "gamma__waterwheel": 0,
-            "gammadot__waterwheel": 0.01,
+            "gammadot__waterwheel": 0.1,
         }), 
         dynamics=[
             MeshBuoyancy(
@@ -239,52 +239,17 @@ if __name__ == "__main__":
                 name="gravity", 
                 gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj"
             ),
-            # ConstantForce("constant",1,1,1,1,1,1),
             MeshBodyDrag(
                 name="bodydrag",
-                bodydrag_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj"
+                bodydrag_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary_poked.obj"
             )
         ]
     )
 
     # Run the sim
     print("Running simulation")
-    sim.simulate(delta_t=10, dt=0.001, verbose=True)
+    sim.simulate(delta_t=30, dt=0.01, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
-
-    from visualizer import Visualizer
-    import trimesh
-    vis_model = trimesh.load(
-            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup_extruded.obj", 
-            file_type="obj", 
-            force="mesh"
-        )
-    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
-    print("Saving animation")
-    vis.animate(save_path="Flip.mp4")
-
-    # # Plot the results
-    # plt.plot(data["t"], data["f_z__gravity"], label="f_z__gravity")
-    # plt.plot(data["t"], data["f_z__buoyancy"], label="f_z__buoyancy")
-    # plt.xlabel("Time (s)")
-    # plt.ylabel("Force (N)")
-    # plt.legend()
-    # plt.show()
-
-    fig, ax = plt.subplots(nrows=2, ncols=3)
-    for row_idx, position_orientation in enumerate(["v", "omega"]):
-        for col_idx, axis in enumerate(AXES):
-            ax[row_idx, col_idx].plot(
-                data["t"], 
-                data[f"{position_orientation}_{axis}__boat"], 
-                label=f"{position_orientation}_{axis}__boat"
-            )
-            ax[row_idx, col_idx].set_xlabel("Time (s)")
-            if position_orientation == "v": ylabel = "Linear Velocity (m/s)"
-            elif position_orientation == "omega": ylabel = "Angular Velocity (rad/s)"
-            ax[row_idx, col_idx].set_ylabel(ylabel)
-            ax[row_idx, col_idx].legend()
-    plt.show()
 
     fig, ax = plt.subplots(nrows=2, ncols=3)
     for row_idx, position_orientation in enumerate(["r", "theta"]):
@@ -300,3 +265,14 @@ if __name__ == "__main__":
             ax[row_idx, col_idx].set_ylabel(ylabel)
             ax[row_idx, col_idx].legend()
     plt.show()
+
+    from visualizer import Visualizer
+    import trimesh
+    vis_model = trimesh.load(
+            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj", 
+            file_type="obj", 
+            force="mesh"
+        )
+    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
+    print("Saving animation")
+    vis.animate(save_path="Test.mp4", show_forces=True)

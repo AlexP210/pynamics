@@ -48,10 +48,12 @@ class MeshBodyDrag(DynamicsParent):
             self,
             name: str,
             bodydrag_model_path: str,
+            drag_coefficient:float=1.28
         ):
         super().__init__(name=name)
         self.dynamics_parameters = {
-            "bodydrag_model_path": bodydrag_model_path
+            "bodydrag_model_path": bodydrag_model_path,
+            "drag_coefficient": drag_coefficient
         }
         self.bodydrag_model:trimesh.Trimesh = trimesh.load(
             file_obj=bodydrag_model_path, 
@@ -182,14 +184,13 @@ class MeshBodyDrag(DynamicsParent):
 
             # Calculate the force magnitude
             v_squared = float(np.dot(v_m.T, v_m))
-            force_magnitude = 0.5*state["rho__water"]*1.2*v_squared*A_perp
-            # if force_magnitude > 10000: assert False
-            # Calculate the force
-            force__comframe_m = -1*force_magnitude*normal__comframe_m
+            force_magnitude = 0.5*state["rho__water"]*self.dynamics_parameters["drag_coefficient"]
+            force_magnitude*=v_squared*A_perp
+            force__comframe_m = force_magnitude*v_hat_m
             point_of_application__comframe_m = com_to_triangle_center__comframe_m
             torque__comframe_m = np.cross(
-                force__comframe_m.T,
-                point_of_application__comframe_m.T
+                point_of_application__comframe_m.T,
+                force__comframe_m.T
             ).T
             total_bodydrag_force__comframe_m += force__comframe_m
             total_bodydrag_torque__comframe_m += torque__comframe_m

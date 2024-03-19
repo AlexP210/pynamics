@@ -101,8 +101,8 @@ class MeshBuoyancy(DynamicsParent):
             point_of_application__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], point_of_application__worldframe - r_m)
             point_of_application__comframe = point_of_application__bodyframe - c_m
             torque__comframe = np.cross(
-                force__comframe.T,
-                point_of_application__comframe.T
+                point_of_application__comframe.T,
+                force__comframe.T
             ).T
 
         # Update the state dict
