@@ -11,6 +11,7 @@ from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
 from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity, MeshBodyDrag
 from pyboatsim.math import linalg
+from pyboatsim.topology import Topology, Frame, Body
 
 class BoAtSim:
     def __init__(
@@ -183,96 +184,3 @@ class BoAtSim:
 
     def get_history_as_dataframe(self):
         return pd.DataFrame.from_dict(self.history)
-
-if __name__ == "__main__":
-
-    # Assemble the sim
-    sim = BoAtSim(
-        state=State(
-            state_dictionary={
-            "t": 0,
-            "r_x__boat": 0, 
-            "r_y__boat": 0,
-            "r_z__boat": 2,
-            "r_z__water": 0,
-            "v_x__boat": 0,
-            "v_y__boat": 0, 
-            "v_z__boat": 0,
-            "a_x__boat": 0, 
-            "a_y__boat": 0, 
-            "a_z__boat": 0, 
-            "theta_x__boat": 0, 
-            "theta_y__boat": np.pi/4, 
-            "theta_z__boat": 0, 
-            "omega_x__boat": 0, 
-            "omega_y__boat": 0, 
-            "omega_z__boat": 0,
-            "alpha_x__boat": 0, 
-            "alpha_y__boat": 0, 
-            "alpha_z__boat": 0,
-            "m__boat": 1000,
-            "I_xx__boat": (1000/12)*(2**2 + 0.4**2),
-            "I_xy__boat": 0,
-            "I_xz__boat": 0,
-            "I_yx__boat": 0,
-            "I_yy__boat": (1000/12)*(2**2 + 0.4**2),
-            "I_yz__boat": 0,
-            "I_zx__boat": 0,
-            "I_zy__boat": 0,
-            "I_zz__boat": (1000/12)*(2**2 + 2**2),
-            "c_x__boat": 0,
-            "c_y__boat": 0,
-            "c_z__boat": 0,
-            "rho__water": 1000,
-            "v_x__water": 0,
-            "v_y__water": 0, 
-            "v_z__water": 0,
-            "gamma__waterwheel": 0,
-            "gammadot__waterwheel": 0.1,
-        }), 
-        dynamics=[
-            MeshBuoyancy(
-                name="buoyancy", 
-                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj"
-            ),
-            MeshGravity(
-                name="gravity", 
-                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj"
-            ),
-            MeshBodyDrag(
-                name="bodydrag",
-                bodydrag_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary_poked.obj"
-            )
-        ]
-    )
-
-    # Run the sim
-    print("Running simulation")
-    sim.simulate(delta_t=30, dt=0.01, verbose=True)
-    data = pd.DataFrame.from_dict(sim.history)
-
-    fig, ax = plt.subplots(nrows=2, ncols=3)
-    for row_idx, position_orientation in enumerate(["r", "theta"]):
-        for col_idx, axis in enumerate(AXES):
-            ax[row_idx, col_idx].plot(
-                data["t"], 
-                data[f"{position_orientation}_{axis}__boat"], 
-                label=f"{position_orientation}_{axis}__boat"
-            )
-            ax[row_idx, col_idx].set_xlabel("Time (s)")
-            if position_orientation == "r": ylabel = "Position (m)"
-            elif position_orientation == "theta": ylabel = "Angle (rad)"
-            ax[row_idx, col_idx].set_ylabel(ylabel)
-            ax[row_idx, col_idx].legend()
-    plt.show()
-
-    from visualizer import Visualizer
-    import trimesh
-    vis_model = trimesh.load(
-            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj", 
-            file_type="obj", 
-            force="mesh"
-        )
-    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
-    print("Saving animation")
-    vis.animate(save_path="Test.mp4", show_forces=True)

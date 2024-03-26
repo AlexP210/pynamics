@@ -3,7 +3,7 @@ import numpy as np
 class Frame:
     def __init__(
         self,
-        translation:np.matrix=np.zeros((3,1)),
+        translation:np.matrix=np.matrix([0.0,0.0,0.0]).T,
         rotation:np.matrix=np.eye(3,3)
     ):
         self.translation = translation
@@ -11,6 +11,20 @@ class Frame:
         self.matrix = np.block([
             [rotation, translation],
             [0,0,0,1]
+        ])
+
+    @classmethod
+    def get_rotation_matrix(cls, angle, axis):
+        c = np.cos(angle)
+        s = np.sin(angle)
+        C = 1-c
+        x = axis[0,0]
+        y = axis[1,0]
+        z = axis[2,0]
+        return np.matrix([
+            [x*x*C+c, x*y*C-z*s, x*z*C+y*s],
+            [y*x*C+z*s, y*y*C+c, y*z*C-x*s],
+            [z*x*C-y*s, z*y*C+x*s, z*z*C+c]
         ])
 
 class Body:
@@ -53,8 +67,12 @@ class Topology:
             root_body:Body,
             root_body_name:str,
     ):
+        self.root_body_name = root_body_name
         self.tree = {root_body_name: (root_body_name, "Identity")}
         self.bodies = {root_body_name: root_body}
+        self.mass = None
+        self.center_of_mass = None
+        self.inertia_tensor = None
 
     def add_frame(
             self,
@@ -105,6 +123,11 @@ class Topology:
         self.bodies[child_body_name] = child_body
         self.tree[child_body_name] = (parent_body_name, parent_frame_name)
 
+        # Mass properties is no longer valid
+        self.mass = None
+        self.center_of_mass = None
+        self.inertia_tensor = None
+
     def get_transform(
             self,
             from_body_name:str,
@@ -114,79 +137,94 @@ class Topology:
     ):
         return np.linalg.inv(self._get_transform_from_root(from_body_name, from_frame_name)) * self._get_transform_from_root(to_body_name, to_frame_name)
     
+    def get_mass(self):
+        if self.mass is not None: return self.mass
+        return sum([body.mass for body in self.bodies.values()])
+
+    def get_center_of_mass(self, as_matrix:bool=False):
+        # If we've already calculated it, return it
+        if self.center_of_mass is not None: 
+            com_m = self.center_of_mass 
+        # Otherwise calculate it
+        else:        
+            first_mass_moment = np.matrix([0.0, 0.0, 0.0]).T
+            total_mass = 0
+            for body_name, body in self.bodies.items():
+                base_to_com_matrix = self.get_transform(
+                    from_body_name=self.root_body_name,
+                    from_frame_name="Identity",
+                    to_body_name=body_name,
+                    to_frame_name="Center of Mass"
+                )
+                base_to_com_translation = base_to_com_matrix[0:3, 3]
+                total_mass += body.mass
+                first_mass_moment += body.mass * base_to_com_translation
+            self.mass = total_mass
+            self.center_of_mass = first_mass_moment / self.mass
+
+            com_m = self.center_of_mass
+
+        if not as_matrix: 
+            return com_m
+        else:
+            ret = np.matrix(np.eye(4,4))
+            ret[0:3,3] = com_m[:,0]
+            return ret
+
+    def get_inertia_tensor(self):
+        if self.inertia_tensor is not None: return self.inertia_tensor
+
+        base_frame_to_topo_com_frame = self.get_center_of_mass(as_matrix=True)
+        topology_inertia_tensor = np.zeros(shape=(3,3))
+        for body_name, body in self.bodies.items():
+            body_com_frame_to_base_frame = self.get_transform(
+                from_body_name=body_name,
+                from_frame_name="Center of Mass",
+                to_body_name=self.root_body_name,
+                to_frame_name="Identity"
+            )
+            A = body_com_frame_to_base_frame * base_frame_to_topo_com_frame
+            R = A[0:3, 0:3]
+            T = A[0:3,3]
+            rotated_body_inertia_tensor = R @ body.inertia_matrix @ R.T
+            correction = body.mass*( (np.linalg.norm(T)**2)*np.matrix(np.eye(3,3)) - T@T.T )
+            transformed_body_inertia_tensor = rotated_body_inertia_tensor + correction
+
+            topology_inertia_tensor += transformed_body_inertia_tensor
+
+        self.inertia_tensor = topology_inertia_tensor
+        return self.inertia_tensor
+
+
 if __name__ == "__main__":
 
-    wheel_tip_frame = Frame(
-        translation=np.matrix([[1,], [0,], [0]]),
-        rotation=np.matrix([
-            [1, 0, 0],
-            [0, -0, -1],
-            [0, 1, 0]
+    side = Body(
+        mass=1,
+        center_of_mass=np.matrix([0.5,0.0,0.0]).T,
+        inertia_matrix=np.matrix([
+            [0, 0, 0],
+            [0, 1/12, 0],
+            [0, 0, 1/12]
         ])
     )
-    left_wheel_hub_frame = Frame(
-        translation=np.matrix([[0,], [1,], [0]]),
-        rotation=np.matrix([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]
-        ])
+    corner = Frame(
+        translation=np.matrix([1.0,0.0,0.0]).T, 
+        rotation=Frame.get_rotation_matrix(np.pi/2, np.matrix([0.0,0.0,1.0]).T)
     )
-    right_wheel_hub_frame = Frame(
-        translation=np.matrix([[0,], [-1,], [0]]),
-        rotation=np.matrix([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]
-        ])
-    )
+    side.add_frame(frame=corner, frame_name="Corner")
 
-    boat_body = Body(
-        mass=10,
-        center_of_mass=np.matrix([[1,], [0,], [0]]),
-        inertia_matrix=np.eye(3,3)
-    )
-    water_wheel_body = Body(
-        mass=10,
-        center_of_mass=np.matrix([[1,], [0,], [0]]),
-        inertia_matrix=np.eye(3,3)
-    )
+    square = Topology(root_body=side, root_body_name="Side 1")
+    square.add_connection("Side 1", "Corner", side, "Side 2")
+    square.add_connection("Side 2", "Corner", side, "Side 3")
+    square.add_connection("Side 3", "Corner", side, "Side 4")
 
-    topology = Topology(
-        root_body=boat_body,
-        root_body_name="Boat"
-    )
-    topology.add_frame(body_name="Boat", frame=left_wheel_hub_frame, frame_name="Left Water Wheel Frame")
-    topology.add_frame(body_name="Boat", frame=right_wheel_hub_frame, frame_name="Right Water Wheel Frame")
-    
-    topology.add_connection("Boat", "Left Water Wheel Frame", water_wheel_body, "Left Water Wheel")
-    topology.add_connection("Boat", "Right Water Wheel Frame", water_wheel_body, "Right Water Wheel")
-
-    topology.add_frame(body_name="Left Water Wheel", frame=wheel_tip_frame, frame_name="Water Wheel Tip Frame")
-    topology.add_frame(body_name="Right Water Wheel", frame=wheel_tip_frame, frame_name="Water Wheel Tip Frame")
-
-    transform1 = topology.get_transform(
-        from_body_name="Boat",
+    transform = square.get_transform(
+        from_body_name="Side 1",
         from_frame_name="Identity",
-        to_body_name="Left Water Wheel",
-        to_frame_name="Water Wheel Tip Frame"
+        to_body_name="Side 4",
+        to_frame_name="Corner"
     )
-    transform2 = topology.get_transform(
-        from_body_name="Left Water Wheel",
-        from_frame_name="Water Wheel Tip Frame",
-        to_body_name="Boat",
-        to_frame_name="Identity"
-    )
-
-    transform3 = topology.get_transform(
-        from_body_name="Left Water Wheel",
-        from_frame_name="Water Wheel Tip Frame",
-        to_body_name="Right Water Wheel",
-        to_frame_name="Water Wheel Tip Frame"
-    )
-
-    print(transform3)
-
-
-
-    
+    print(transform)
+    print(square.get_mass())
+    print(square.get_center_of_mass())
+    print(np.matrix([0.0,0.0,1.0])@square.get_inertia_tensor()@np.matrix([0.0,0.0,1.0]).T)
