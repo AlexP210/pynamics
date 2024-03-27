@@ -6,6 +6,7 @@ import scipy.integrate as integrate
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 from pyboatsim.constants import AXES
+from pyboatsim.topology import Topology
 
 class ConstantForce(DynamicsParent):
     def __init__(
@@ -31,7 +32,7 @@ class ConstantForce(DynamicsParent):
     def required_state_labels(self):
         return []
     
-    def compute_dynamics(self, state:State, dt:float) -> State:
+    def compute_dynamics(self, state:State, topology:Topology, dt:float) -> State:
         for axis in AXES:
             state.set({
                 f"f_{axis}__{self.name}": self.dynamics_parameters[f"f_{axis}"],

@@ -6,6 +6,7 @@ import scipy.integrate as integrate
 from pyboatsim.constants import AXES
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
+from pyboatsim.topology import Topology
 
 class WaterWheel(DynamicsParent):
     def __init__(
@@ -38,7 +39,7 @@ class WaterWheel(DynamicsParent):
             f"gammadot__{self.name}"
         ]
     
-    def compute_dynamics(self, state:State, dt:float):
+    def compute_dynamics(self, state:State, topology:Topology, dt:float):
         x = self._calculate_waterwheel_force(
             alpha = state[f"gamma__{self.name}"],
             rho=state["rho"],

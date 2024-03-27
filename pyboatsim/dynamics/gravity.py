@@ -6,6 +6,7 @@ import trimesh
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 from pyboatsim.constants import AXES, EPSILON
+from pyboatsim.topology import Topology
 
 class MeshGravity(DynamicsParent):
     def __init__(
@@ -32,42 +33,42 @@ class MeshGravity(DynamicsParent):
             f"theta_{axis}__boat" for axis in AXES
         ]
     
-    def compute_dynamics(self, state:State, dt:float) -> State:
-        # Array representation of position & rotation
+    def compute_dynamics(self, state:State, topology:Topology, dt:float) -> State:
+        # Array representation of position & rotation of root body inertial frame
         theta = np.array([state[f"theta_{axis}__boat"] for axis in AXES])
         r = np.array([state[f"r_{axis}__boat"] for axis in AXES])
         c = np.array([state[f"c_{axis}__boat"] for axis in AXES])
 
-        # Copy of the buoyancy model to move around
-        gravity_model_temp:trimesh.Trimesh = self.gravity_model.copy()
-        # Transform it to the CM frame
-        c_translation_matrix = trimesh.transformations.translation_matrix(direction=-c)
-        gravity_model_temp.apply_transform(c_translation_matrix)
-
-        # Transform the mesh
-        translation_matrix = trimesh.transformations.translation_matrix(direction=r)
+        # Get transformation from World frame to topology com frame
+        T_root_com = trimesh.transformations.translation_matrix(direction=c)
+        T_com_root = trimesh.transformations.translation_matrix(direction=-c)
+        T_world_root = trimesh.transformations.translation_matrix(direction=r)
         if np.linalg.norm(theta) <= EPSILON:
-            rotation_matrix = np.eye(4)
+            C_world_com = np.eye(4)
         else:
-            rotation_matrix = trimesh.transformations.rotation_matrix(
+            C_world_com = trimesh.transformations.rotation_matrix(
                 direction=theta/np.linalg.norm(theta),
-                angle=np.linalg.norm(theta))
+                angle=np.linalg.norm(theta)
+            )
         transformation_matrix = trimesh.transformations.concatenate_matrices(
-                translation_matrix,
-                rotation_matrix
+                T_root_com,
+                T_world_root,
+                C_world_com,
+                T_com_root
         )
 
+        # Copy of the buoyancy model to move around
+        gravity_model_temp:trimesh.Trimesh = self.gravity_model.copy()
         gravity_model_temp.apply_transform(
             matrix=transformation_matrix
         )
-        gravity_model_temp.apply_transform(-c_translation_matrix)
         
         # Matrix representations of position & rotation
         theta_m = np.matrix(theta).T
         r_m = np.matrix(r).T
 
         force__worldframe = np.matrix([0, 0, -state["m__boat"] * 9.81]).T
-        force__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], force__worldframe)
+        force__bodyframe = np.dot(C_world_com.T[0:3, 0:3], force__worldframe)
         force__comframe = force__bodyframe
         point_of_application__bodyframe = np.matrix([
             [state["c_x__boat"],],

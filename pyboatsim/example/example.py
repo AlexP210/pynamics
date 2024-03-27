@@ -1,11 +1,14 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import trimesh
 
 from pyboatsim.state import State
 from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity, MeshBodyDrag
 from pyboatsim.topology import Topology, Frame, Body
 from pyboatsim.boatsim import BoAtSim
+from pyboatsim.constants import AXES
+from pyboatsim.visualizer import Visualizer
 
 if __name__ == "__main__":
     # Define the bodies
@@ -39,32 +42,25 @@ if __name__ == "__main__":
     boat_body.add_frame(right_wheel_hub_frame, "Right Wheel Hub Frame")
     boat = Topology(root_body=boat_body, root_body_name="Boat Body")
     
-    n_paddles = 8
-    for i in range(n_paddles):
-        angle = i*(2*np.pi/n_paddles)
-        rotation_matrix = Frame.get_rotation_matrix(
-            angle=angle, 
-            axis=np.matrix([0.0, 1.0, 0.0]).T
-        )
-        left_paddle_frame = Frame(
-            translation=np.matrix([0, 1.25, 0]).T,
-            rotation=rotation_matrix)
-        right_paddle_frame = Frame(
-            translation=np.matrix([0, -1.25, 0]).T,
-            rotation=rotation_matrix)
+    left_wheel_frame = Frame(
+        translation=np.matrix([0, 1.25, 0]).T,
+    )
+    right_wheel_frame = Frame(
+        translation=np.matrix([0, -1.25, 0]).T,
+    )
 
-        boat.add_frame("Boat Body", left_paddle_frame, f"Left Paddle Frame {i}")
-        boat.add_frame("Boat Body", right_paddle_frame, f"Right Paddle Frame {i}")
-        boat.add_connection(
-            parent_body_name="Boat Body", 
-            parent_frame_name=f"Left Paddle Frame {i}", 
-            child_body=paddle_body, 
-            child_body_name=f"Left Paddle {i}")
-        boat.add_connection(
-            parent_body_name="Boat Body", 
-            parent_frame_name=f"Right Paddle Frame {i}", 
-            child_body=paddle_body, 
-            child_body_name=f"Right Paddle {i}")
+    boat.add_frame("Boat Body", left_wheel_frame, f"Left Wheel Frame")
+    boat.add_frame("Boat Body", right_wheel_frame, f"Right Wheel Frame")
+    boat.add_connection(
+        parent_body_name="Boat Body", 
+        parent_frame_name=f"Left Wheel Frame", 
+        child_body=paddle_body, 
+        child_body_name=f"Left Wheel")
+    boat.add_connection(
+        parent_body_name="Boat Body", 
+        parent_frame_name=f"Right Wheel Frame", 
+        child_body=paddle_body, 
+        child_body_name=f"Right Wheel")
         
     # Assemble the sim
     sim = BoAtSim(
@@ -102,7 +98,7 @@ if __name__ == "__main__":
             "I_zz__boat": boat.get_inertia_tensor()[2,2],
             "c_x__boat": boat.get_center_of_mass()[0,0],
             "c_y__boat": boat.get_center_of_mass()[1,0],
-            "c_z__boat": boat.get_center_of_mass[2,0],
+            "c_z__boat": boat.get_center_of_mass()[2,0],
             "rho__water": 1000,
             "v_x__water": 0,
             "v_y__water": 0, 
@@ -123,12 +119,13 @@ if __name__ == "__main__":
                 name="bodydrag",
                 bodydrag_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary_poked.obj"
             )
-        ]
+        ],
+        topology=boat
     )
 
     # Run the sim
     print("Running simulation")
-    sim.simulate(delta_t=30, dt=0.01, verbose=True)
+    sim.simulate(delta_t=10, dt=0.01, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
     fig, ax = plt.subplots(nrows=2, ncols=3)
@@ -146,13 +143,24 @@ if __name__ == "__main__":
             ax[row_idx, col_idx].legend()
     plt.show()
 
-    from visualizer import Visualizer
-    import trimesh
-    vis_model = trimesh.load(
+    vis_models = {
+        ("Boat Body", "Identity"): trimesh.load(
             file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj", 
             file_type="obj", 
             force="mesh"
-        )
-    vis = Visualizer(boatsim=sim, visualization_models=vis_model)
+        ),
+        ("Left Wheel", "Identity"): trimesh.load(
+            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/water_wheel.obj", 
+            file_type="obj", 
+            force="mesh"
+        ),
+        ("Right Wheel", "Identity"): trimesh.load(
+            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/water_wheel.obj", 
+            file_type="obj", 
+            force="mesh"
+        ),
+    }
+
+    vis = Visualizer(boatsim=sim, visualization_models=vis_models)
     print("Saving animation")
     vis.animate(save_path="Test.mp4", show_forces=True)

@@ -1,6 +1,6 @@
 import trimesh
 import numpy as np
-from boatsim import BoAtSim
+from pyboatsim.boatsim import BoAtSim
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -9,6 +9,7 @@ import pandas as pd
 import tqdm as tqdm
 from mpl_toolkits.mplot3d import proj3d
 from matplotlib.patches import FancyArrowPatch
+import typing
 
 class Arrow3D(FancyArrowPatch):
     def __init__(self, xs, ys, zs, *args, **kwargs):
@@ -29,9 +30,9 @@ class Arrow3D(FancyArrowPatch):
 
 class Visualizer:
 
-    def __init__(self, boatsim:BoAtSim, visualization_model:trimesh.Trimesh):
+    def __init__(self, boatsim:BoAtSim, visualization_models:type):
         self.boatsim = boatsim
-        self.visualization_model = visualization_model
+        self.visualization_models = visualization_models
         self.data = self.boatsim.get_history_as_dataframe()
         self.force_magnitudes = {}
         self.torque_magnitudes = {}
@@ -46,43 +47,68 @@ class Visualizer:
             ).max()
 
     def _update(self, step_idx:int, axes:plt.Axes, show_forces:bool):
-        # Array representation of position & rotation
+
+        # Get the state for this time
         state = self.data.iloc[step_idx]
+
+        # Array representation of position & rotation of root body inertial frame
         theta = np.array([state[f"theta_{axis}__boat"] for axis in AXES])
         r = np.array([state[f"r_{axis}__boat"] for axis in AXES])
         c = np.array([state[f"c_{axis}__boat"] for axis in AXES])
         com__worldframe = r+c
-        # Transform the mesh
-        translation_matrix = trimesh.transformations.translation_matrix(direction=r)
-        if np.linalg.norm(theta) <= EPSILON:
-            rotation_matrix = np.eye(4)
-        else:
-            rotation_matrix = trimesh.transformations.rotation_matrix(
-                direction=theta/np.linalg.norm(theta),
-                angle=np.linalg.norm(theta))
-        transformation_matrix = trimesh.transformations.concatenate_matrices(
-                translation_matrix,
-                rotation_matrix
-        )
-        visualization_model_temp = self.visualization_model.copy()
-        visualization_model_temp.apply_transform(transformation_matrix)
 
-        # Prepare the axes and plot
-        vertices = visualization_model_temp.vertices
-        T = visualization_model_temp.faces
         axes.clear()
         axes.set_xlim(r[0]-2, r[0]+2)
         axes.set_ylim(r[1]-2, r[1]+2)
         axes.set_zlim(r[2]-2, r[2]+2)
-
+        
+        # Place the water
         xx, yy = np.meshgrid((r[0]-2, r[0]+2), (r[1]-2, r[1]+2))
         z = state["r_z__water"]*np.ones(xx.shape)
         water = axes.plot_surface(xx, yy, z, color="b", alpha=0.1, zorder=1)
-        boat = axes.plot_trisurf(
-            vertices[:,0], vertices[:,1], vertices[:,2], 
-            triangles = T, edgecolor=[[0,0,0]], linewidth=1.0, 
-            alpha=0.5, shade=True, color="k",zorder=1
+
+        # Get transformation from World frame to topology com frame
+        T_root_com = trimesh.transformations.translation_matrix(direction=c)
+        T_com_root = trimesh.transformations.translation_matrix(direction=-c)
+        T_world_root = trimesh.transformations.translation_matrix(direction=r)
+        if np.linalg.norm(theta) <= EPSILON:
+            C_world_com = np.eye(4)
+        else:
+            C_world_com = trimesh.transformations.rotation_matrix(
+                direction=theta/np.linalg.norm(theta),
+                angle=np.linalg.norm(theta)
+            )
+        transformation_matrix = trimesh.transformations.concatenate_matrices(
+                T_root_com,
+                T_world_root,
+                C_world_com,
+                T_com_root
         )
+        
+        # Transform the mesh
+        # Transform it to the CM frame
+        artists = []
+        for (body_name, frame_name), visualization_model in self.visualization_models.items():
+            visualization_model_temp = visualization_model.copy()
+            visualization_model_temp.apply_transform(
+                transformation_matrix@np.array(self.boatsim.topology.get_transform(
+                    from_body_name=self.boatsim.topology.root_body_name,
+                    from_frame_name="Identity",
+                    to_body_name=body_name,
+                    to_frame_name=frame_name
+                ))
+            )
+            # Prepare the axes and plot
+            vertices = visualization_model_temp.vertices
+            T = visualization_model_temp.faces
+
+            artist = axes.plot_trisurf(
+                vertices[:,0], vertices[:,1], vertices[:,2], 
+                triangles = T, edgecolor=[[0,0,0]], linewidth=1.0, 
+                alpha=0.5, shade=True, color="k",zorder=1
+            )
+            artists.append(artist)
+
         if show_forces:
             for dynamics_source in self.boatsim.dynamics:
                 force__worldframe_m = np.matrix([
@@ -104,7 +130,7 @@ class Visualizer:
                     [state[f"tau_{axis}__{dynamics_source.name}"],]
                     for axis in AXES
                 ])
-                tau__worldframe_m = rotation_matrix[:3,:3]@tau__comframe_m
+                tau__worldframe_m = C_world_com[:3,:3]@tau__comframe_m
                 if self.torque_magnitudes[dynamics_source.name] > EPSILON:
                     tau__worldframe_m/=self.torque_magnitudes[dynamics_source.name]
                 torque_arrow = Arrow3D(
@@ -116,7 +142,7 @@ class Visualizer:
                     color="b",
                 )
                 axes.add_artist(torque_arrow)
-        return water, boat
+        return water, *artists
 
 
     def animate(self, save_path:str=None, verbose:bool=True, figsize=(12,10), show_forces:bool=False):

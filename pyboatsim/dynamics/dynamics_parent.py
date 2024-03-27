@@ -2,6 +2,7 @@ import typing
 import abc
 
 from pyboatsim.state import State
+from pyboatsim.topology import Topology
 
 class DynamicsParent(abc.ABC):
     def __init__(self, name):
@@ -13,7 +14,7 @@ class DynamicsParent(abc.ABC):
         self.name = name
 
     @abc.abstractmethod
-    def compute_dynamics(self, state:State, dt:float) -> State:
+    def compute_dynamics(self, state:State, topology:Topology, dt:float) -> State:
         """
         Each instance of Dynamics needs to implement a calculation of the 
         dynamics, adding a state
@@ -33,7 +34,7 @@ class DynamicsParent(abc.ABC):
             )
 
 
-    def __call__(self, state:State, dt:float) -> float:
+    def __call__(self, state:State, topology:Topology, dt:float) -> float:
         """
         Handles checking if the passed `State` object contains all the required
         labels, printing a helpful error message if not, and calculating 
@@ -46,4 +47,4 @@ class DynamicsParent(abc.ABC):
         if len(missing_labels) != 0: raise ValueError(
             f"The following labels are missing from the sim state, dynamics"
             f" cannot be calculated: {', '.join(missing_labels)}")
-        return self.compute_dynamics(state, dt)
+        return self.compute_dynamics(state, topology, dt)

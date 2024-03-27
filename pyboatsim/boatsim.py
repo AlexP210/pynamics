@@ -17,7 +17,8 @@ class BoAtSim:
     def __init__(
             self,
             state: State,
-            dynamics: typing.List[DynamicsParent]
+            dynamics: typing.List[DynamicsParent],
+            topology: Topology
         ) -> None:
         """
         Initializer
@@ -29,6 +30,7 @@ class BoAtSim:
             dynamics_module.name 
             for dynamics_module in self.dynamics
         ]
+        self.topology = topology
         self.required_labels = [
             f"r_{axis}__boat" for axis in AXES
         ] + [
@@ -108,7 +110,7 @@ class BoAtSim:
         # intermediate values calculated by dynamics modules based on the
         # current state.
         for dynamics_module in self.dynamics:
-            self.state = dynamics_module(self.state, dt)
+            self.state = dynamics_module(self.state, self.topology, dt)
         for axis in AXES:
             # Calculate the total force & moment by adding all the "f_"  and
             # "tau_" labels in the state dictionary

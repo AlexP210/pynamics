@@ -7,6 +7,7 @@ import trimesh
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 from pyboatsim.constants import AXES, EPSILON
+from pyboatsim.topology import Topology
 
 class SimpleBodyDrag(DynamicsParent):
     def __init__(
@@ -78,32 +79,38 @@ class MeshBodyDrag(DynamicsParent):
                 "rho__water"
             ]
     
-    def compute_dynamics(self, state:State, dt:float) -> State:
+    def compute_dynamics(self, state:State, topology:Topology, dt:float) -> State:
 
-        # Array representation of position & rotation
+        # Array representation of position & rotation of root body inertial frame
         theta = np.array([state[f"theta_{axis}__boat"] for axis in AXES])
         r = np.array([state[f"r_{axis}__boat"] for axis in AXES])
+        c = np.array([state[f"c_{axis}__boat"] for axis in AXES])
 
-        # Transform the mesh
-        translation_matrix = trimesh.transformations.translation_matrix(direction=r)
+        # Get transformation from World frame to topology com frame
+        T_root_com = trimesh.transformations.translation_matrix(direction=c)
+        T_com_root = trimesh.transformations.translation_matrix(direction=-c)
+        T_world_root = trimesh.transformations.translation_matrix(direction=r)
         if np.linalg.norm(theta) <= EPSILON:
-            rotation_matrix = np.eye(4)
+            C_world_com = np.eye(4)
         else:
-            rotation_matrix = trimesh.transformations.rotation_matrix(
+            C_world_com = trimesh.transformations.rotation_matrix(
                 direction=theta/np.linalg.norm(theta),
                 angle=np.linalg.norm(theta)
             )
         transformation_matrix = trimesh.transformations.concatenate_matrices(
-                translation_matrix,
-                rotation_matrix
+                T_root_com,
+                T_world_root,
+                C_world_com,
+                T_com_root
         )
 
-        # Create a temp body drag model & transform
+        # Copy of the buoyancy model to move around
         bodydrag_model_temp:trimesh.Trimesh = self.bodydrag_model.copy()
+        # Transform the mesh
         bodydrag_model_temp.apply_transform(
             matrix=transformation_matrix
         )
-
+        
         # Get the submerged section
         submerged:trimesh.Trimesh = bodydrag_model_temp.slice_plane(
             plane_origin=(0,0,0),
@@ -155,12 +162,12 @@ class MeshBodyDrag(DynamicsParent):
 
             # Compute the velocity of the triangle center in COM frame
             com_to_triangle_center__worldframe_m = triangle_center__worldframe_m - com__worldframe_m
-            com_to_triangle_center__comframe_m = np.dot(rotation_matrix.T[0:3, 0:3], com_to_triangle_center__worldframe_m)
-            v__boat__comframe_m = np.dot(rotation_matrix.T[0:3, 0:3], v__boat__worldframe_m)
+            com_to_triangle_center__comframe_m = np.dot(C_world_com.T[0:3, 0:3], com_to_triangle_center__worldframe_m)
+            v__boat__comframe_m = np.dot(C_world_com.T[0:3, 0:3], v__boat__worldframe_m)
             v__triangle__comframe_m = v__boat__comframe_m + np.cross(omega__boat__comframe_m.T, com_to_triangle_center__comframe_m.T).T
             
             # Get the velocity of the water in COM Frame
-            v__water__comframe_m = np.dot(rotation_matrix.T[0:3, 0:3], v__water__worldframe_m)
+            v__water__comframe_m = np.dot(C_world_com.T[0:3, 0:3], v__water__worldframe_m)
             
             # Get the relative velocity in the COM Frame
             v_m = v__water__comframe_m - v__triangle__comframe_m
@@ -168,7 +175,7 @@ class MeshBodyDrag(DynamicsParent):
             else: v_hat_m = v_m / np.linalg.norm(v_m)
             
             # Check the normals
-            normal__comframe_m = np.dot(rotation_matrix.T[0:3, 0:3], normal_m)
+            normal__comframe_m = np.dot(C_world_com.T[0:3, 0:3], normal_m)
             if np.linalg.norm(normal__comframe_m) < EPSILON: normal__comframe_m = np.matrix([0,0,0]).T
             else: normal__comframe_m = normal__comframe_m / np.linalg.norm(normal__comframe_m)
             
@@ -194,7 +201,7 @@ class MeshBodyDrag(DynamicsParent):
             ).T
             total_bodydrag_force__comframe_m += force__comframe_m
             total_bodydrag_torque__comframe_m += torque__comframe_m
-        total_bodydrag_force__worldframe_m = np.dot(rotation_matrix[0:3, 0:3], total_bodydrag_force__comframe_m)
+        total_bodydrag_force__worldframe_m = np.dot(C_world_com[0:3, 0:3], total_bodydrag_force__comframe_m)
 
         # Update the state dict
         for axis_idx in range(len(AXES)):
