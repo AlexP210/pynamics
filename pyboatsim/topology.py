@@ -1,4 +1,18 @@
 import numpy as np
+from enum import Enum
+import typing as types
+from constants import EPSILON
+
+class Articulation:
+    TRANSLATE_X = np.array([1,0,0,0,0,0])
+    TRANSLATE_Y = np.array([0,1,0,0,0,0])
+    TRANSLATE_Z = np.array([0,0,1,0,0,0])
+    ROTATE_X = np.array([0,0,0,1,0,0])
+    ROTATE_Y = np.array([0,0,0,0,1,0])
+    ROTATE_Z = np.array([0,0,0,0,0,1])
+
+class ArticulationError(Exception):
+    pass
 
 class Frame:
     def __init__(
@@ -73,6 +87,16 @@ class Topology:
         self.mass = None
         self.center_of_mass = None
         self.inertia_tensor = None
+        self.constraints = {
+            root_body_name: np.array([True,True,True,True,True,True])
+        }
+        self.articulation = {
+            root_body_name: np.array([0,0,0,0,0,0])
+        }
+        # Initialize the mass properties
+        self.get_mass()
+        self.get_center_of_mass()
+        self.get_inertia_tensor()
 
     def add_frame(
             self,
@@ -88,12 +112,26 @@ class Topology:
             to_body_name:str,
             to_frame_name:str
     ):  
-        last_matrix = self.bodies[to_body_name].frames[to_frame_name].matrix
+        # Get the transformation for the articulation
+        parent_body_to_body_identity_translation = np.matrix(self.articulation[to_body_name][:3]).T
+        parent_body_to_body_identity_rotation = np.matrix(self.articulation[to_body_name][3:]).T
+        if np.linalg.norm(parent_body_to_body_identity_rotation) > EPSILON:
+            parent_body_to_body_identity_rotation_matrix = Frame.get_rotation_matrix(
+                angle = np.linalg.norm(parent_body_to_body_identity_rotation),
+                axis = parent_body_to_body_identity_rotation/np.linalg.norm(parent_body_to_body_identity_rotation)
+            )
+        else:
+            parent_body_to_body_identity_rotation_matrix = np.matrix(np.eye(3,3))
+        articulation_transformation = np.matrix(np.eye(4,4))
+        articulation_transformation[:3,:3] = parent_body_to_body_identity_rotation_matrix
+        articulation_transformation[:3,3] = parent_body_to_body_identity_translation
+
+        body_identity_to_frame_transformation = self.bodies[to_body_name].frames[to_frame_name].matrix
         parent_body_name, parent_frame_name = self.tree[to_body_name]
         if parent_body_name != to_body_name: 
-            return self._get_transform_from_root(parent_body_name, parent_frame_name) * last_matrix
+            return self._get_transform_from_root(parent_body_name, parent_frame_name) * articulation_transformation * body_identity_to_frame_transformation
         else:
-            return last_matrix
+            return articulation_transformation * body_identity_to_frame_transformation
         
     def _assert_body_in_topology(self, body_name:str):
         if not body_name in self.bodies:
@@ -114,7 +152,9 @@ class Topology:
             parent_body_name:str, 
             parent_frame_name:str,
             child_body:Body,
-            child_body_name:str
+            child_body_name:str,
+            constraints:types.List[Articulation] = [],
+            articulation:np.array=np.zeros(6),
     ):
         self._assert_body_in_topology(parent_body_name)
         self._assert_body_not_in_topology(child_body_name)
@@ -122,6 +162,14 @@ class Topology:
 
         self.bodies[child_body_name] = child_body
         self.tree[child_body_name] = (parent_body_name, parent_frame_name)
+
+        self.constraints[child_body_name] = np.logical_or.reduce(constraints)
+        if (np.multiply(self.constraints[child_body_name], articulation) == articulation).all():
+            self.articulation[child_body_name] = articulation
+        else: raise ArticulationError(
+            f"Body {child_body_name} connected to ({parent_body_name}, {parent_frame_name})" 
+            f"with an invalid articulation. Constraints are {constraints}, but"
+            f"articulation {articulation} was provided.")
 
         # Mass properties is no longer valid
         self.mass = None
@@ -195,6 +243,13 @@ class Topology:
         self.inertia_tensor = topology_inertia_tensor
         return self.inertia_tensor
 
+    def set_articulation(self, body_name, articulation):
+        if (np.multiply(self.constraints[body_name], articulation) == articulation).all():
+            self.articulation[body_name] = articulation
+        else: raise ArticulationError(
+            f"Body {body_name} was given" 
+            f" an invalid articulation. Constraints are {self.constraints[body_name]}, but"
+            f" articulation {articulation} was provided.")
 
 if __name__ == "__main__":
 
@@ -214,9 +269,12 @@ if __name__ == "__main__":
     side.add_frame(frame=corner, frame_name="Corner")
 
     square = Topology(root_body=side, root_body_name="Side 1")
-    square.add_connection("Side 1", "Corner", side, "Side 2")
+    square.add_connection("Side 1", "Corner", side, "Side 2", )
     square.add_connection("Side 2", "Corner", side, "Side 3")
-    square.add_connection("Side 3", "Corner", side, "Side 4")
+    square.add_connection(
+        "Side 3", "Corner", 
+        side, "Side 4", 
+        constraints=[Articulation.ROTATE_Y])
 
     transform = square.get_transform(
         from_body_name="Side 1",
@@ -224,7 +282,15 @@ if __name__ == "__main__":
         to_body_name="Side 4",
         to_frame_name="Corner"
     )
-    print(transform)
-    print(square.get_mass())
-    print(square.get_center_of_mass())
-    print(np.matrix([0.0,0.0,1.0])@square.get_inertia_tensor()@np.matrix([0.0,0.0,1.0]).T)
+    print(transform.round(2))
+    square.set_articulation("Side 4", np.array([0,0,0,0,np.pi,0]))
+    transform = square.get_transform(
+        from_body_name="Side 1",
+        from_frame_name="Identity",
+        to_body_name="Side 4",
+        to_frame_name="Corner"
+    )
+    print(transform.round(2))
+    # print(square.get_mass())
+    # print(square.get_center_of_mass())
+    # print(np.matrix([0.0,0.0,1.0])@square.get_inertia_tensor()@np.matrix([0.0,0.0,1.0]).T)
