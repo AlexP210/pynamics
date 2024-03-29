@@ -78,7 +78,7 @@ if __name__ == "__main__":
             "a_y__boat": 0, 
             "a_z__boat": 0, 
             "theta_x__boat": 0, 
-            "theta_y__boat": 0, 
+            "theta_y__boat": np.pi/8, 
             "theta_z__boat": 0, 
             "omega_x__boat": 0, 
             "omega_y__boat": 0, 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     # Run the sim
     print("Running simulation")
-    sim.simulate(delta_t=10, dt=0.01, verbose=True)
+    sim.simulate(delta_t=10, dt=1/60, verbose=True)
     data = pd.DataFrame.from_dict(sim.history)
 
     fig, ax = plt.subplots(nrows=2, ncols=3)
