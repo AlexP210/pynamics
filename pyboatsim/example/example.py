@@ -109,7 +109,9 @@ if __name__ == "__main__":
         dynamics=[
             MeshBuoyancy(
                 name="buoyancy", 
-                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj"
+                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj",
+                fluid_density=1000,
+                fluid_height=0
             ),
             MeshGravity(
                 name="gravity", 

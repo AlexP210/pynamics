@@ -5,6 +5,7 @@ class State:
     def __init__(self, state_dictionary: typing.Dict[str, float] = {}):
         self._state_dictionary = state_dictionary
 
+
     def load(self, name, state_database: pd.DataFrame) -> None:
         """
         Selects the state with index `name` from `state_database`.

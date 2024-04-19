@@ -1,7 +1,7 @@
 import numpy as np
 from enum import Enum
 import typing as types
-from constants import EPSILON
+from pyboatsim.constants import EPSILON
 
 class Articulation:
     TRANSLATE_X = np.array([1,0,0,0,0,0])
@@ -250,6 +250,10 @@ class Topology:
             f"Body {body_name} was given" 
             f" an invalid articulation. Constraints are {self.constraints[body_name]}, but"
             f" articulation {articulation} was provided.")
+        # Mass properties is no longer valid
+        self.mass = None
+        self.center_of_mass = None
+        self.inertia_tensor = None
 
 if __name__ == "__main__":
 
@@ -291,6 +295,3 @@ if __name__ == "__main__":
         to_frame_name="Corner"
     )
     print(transform.round(2))
-    # print(square.get_mass())
-    # print(square.get_center_of_mass())
-    # print(np.matrix([0.0,0.0,1.0])@square.get_inertia_tensor()@np.matrix([0.0,0.0,1.0]).T)

@@ -12,11 +12,15 @@ class MeshBuoyancy(DynamicsParent):
     def __init__(
             self,
             name: str,
-            buoyancy_model_path: str
+            buoyancy_model_path: str,
+            fluid_density: float,
+            fluid_height: float
         ):
         super().__init__(name=name)
         self.dynamics_parameters = {
-            "buoyancy_model_path": buoyancy_model_path
+            "buoyancy_model_path": buoyancy_model_path,
+            "fluid_density": fluid_density,
+            "fluid_height": fluid_height
         }
         self.buoyancy_model = trimesh.load(
             file_obj=buoyancy_model_path, 
