@@ -10,6 +10,7 @@ class Articulation:
     ROTATE_X = np.array([0,0,0,1,0,0])
     ROTATE_Y = np.array([0,0,0,0,1,0])
     ROTATE_Z = np.array([0,0,0,0,0,1])
+    FREE = np.array([1,1,1,1,1,1])
 
 class ArticulationError(Exception):
     pass
@@ -73,25 +74,34 @@ class Body:
         ):
         self.frames[frame_name] = frame
 
+    def copy(self):
+        body_copy =  Body(
+            mass=self.mass, 
+            center_of_mass=self.center_of_mass,
+            inertia_matrix=self.inertia_matrix
+            )
+        body_copy.frames = self.frames
+        return body_copy
 
 class Topology:
 
     def __init__(
             self, 
-            root_body:Body,
-            root_body_name:str,
     ):
-        self.root_body_name = root_body_name
-        self.tree = {root_body_name: (root_body_name, "Identity")}
-        self.bodies = {root_body_name: root_body}
+        self.tree = {"World": ("World", "Identity")}
+        self.bodies = {
+            "World": Body(
+                mass=0,
+                inertia_matrix=np.matrix(np.zeros((3,3))))
+            }
         self.mass = None
         self.center_of_mass = None
         self.inertia_tensor = None
         self.constraints = {
-            root_body_name: np.array([True,True,True,True,True,True])
+            "World": np.array([False,False,False,False,False,False])
         }
         self.articulation = {
-            root_body_name: np.array([0,0,0,0,0,0])
+            "World": np.array([0,0,0,0,0,0])
         }
         # Initialize the mass properties
         self.get_mass()
@@ -136,7 +146,7 @@ class Topology:
     def _assert_body_in_topology(self, body_name:str):
         if not body_name in self.bodies:
             raise ValueError(
-                f"A body with the name {body_name} is not found in"
+                f"A body with the name {body_name} is not found in "
                 "the topology."
             )
     def _assert_body_not_in_topology(self, body_name:str):
@@ -199,7 +209,7 @@ class Topology:
             total_mass = 0
             for body_name, body in self.bodies.items():
                 base_to_com_matrix = self.get_transform(
-                    from_body_name=self.root_body_name,
+                    from_body_name="World",
                     from_frame_name="Identity",
                     to_body_name=body_name,
                     to_frame_name="Center of Mass"
@@ -208,7 +218,10 @@ class Topology:
                 total_mass += body.mass
                 first_mass_moment += body.mass * base_to_com_translation
             self.mass = total_mass
-            self.center_of_mass = first_mass_moment / self.mass
+            if self.mass > 0:
+                self.center_of_mass = first_mass_moment / self.mass
+            else:
+                self.center_of_mass = np.matrix([0.0, 0.0, 0.0]).T
 
             com_m = self.center_of_mass
 
@@ -228,7 +241,7 @@ class Topology:
             body_com_frame_to_base_frame = self.get_transform(
                 from_body_name=body_name,
                 from_frame_name="Center of Mass",
-                to_body_name=self.root_body_name,
+                to_body_name="World",
                 to_frame_name="Identity"
             )
             A = body_com_frame_to_base_frame * base_frame_to_topo_com_frame
@@ -257,41 +270,56 @@ class Topology:
 
 if __name__ == "__main__":
 
-    side = Body(
+    body = Body(
         mass=1,
-        center_of_mass=np.matrix([0.5,0.0,0.0]).T,
+        center_of_mass=np.matrix([0,0.0,0.0]).T,
         inertia_matrix=np.matrix([
             [0, 0, 0],
-            [0, 1/12, 0],
-            [0, 0, 1/12]
+            [0, 0, 0],
+            [0, 0, 0]
         ])
     )
-    corner = Frame(
-        translation=np.matrix([1.0,0.0,0.0]).T, 
-        rotation=Frame.get_rotation_matrix(np.pi/2, np.matrix([0.0,0.0,1.0]).T)
+    base_mounting_point = Frame(
+        translation=np.matrix([2.0,0.0,0.0]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
     )
-    side.add_frame(frame=corner, frame_name="Corner")
+    short_end = Frame(
+        translation=np.matrix([0.25,0.1,0.0]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    )
+    long_end = Frame(
+        translation=np.matrix([1.0,0.1,0.0]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    )
+    long_end_for_yaw = Frame(
+        translation=np.matrix([1.0,0.0,0.1]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    )
+    base = body.copy()
+    roll_body = body.copy()
+    pitch_body_1 = body.copy()
+    pitch_body_2 = body.copy()
+    yaw_body = body.copy()
+    
+    base.add_frame(base_mounting_point, "Base to Roll Body")
+    roll_body.add_frame(short_end, "Roll Body to Pitch Body 1")
+    pitch_body_1.add_frame(long_end, "Pitch Body 1 to Pitch Body 2")
+    pitch_body_2.add_frame(long_end_for_yaw, "Pitch Body 2 to Yaw Body")
+    yaw_body.add_frame(short_end, "End Effector")
 
-    square = Topology(root_body=side, root_body_name="Side 1")
-    square.add_connection("Side 1", "Corner", side, "Side 2", )
-    square.add_connection("Side 2", "Corner", side, "Side 3")
-    square.add_connection(
-        "Side 3", "Corner", 
-        side, "Side 4", 
-        constraints=[Articulation.ROTATE_Y])
 
-    transform = square.get_transform(
-        from_body_name="Side 1",
-        from_frame_name="Identity",
-        to_body_name="Side 4",
-        to_frame_name="Corner"
-    )
-    print(transform.round(2))
-    square.set_articulation("Side 4", np.array([0,0,0,0,np.pi,0]))
-    transform = square.get_transform(
-        from_body_name="Side 1",
-        from_frame_name="Identity",
-        to_body_name="Side 4",
-        to_frame_name="Corner"
-    )
-    print(transform.round(2))
+    robot = Topology()
+    robot.add_connection("World", "Identity", base, "Base Body")
+    robot.add_connection(
+        "Base Body", "Base to Roll Body", roll_body, "Roll Body",
+        constraints=Articulation.ROTATE_X)
+    robot.add_connection(
+        "Roll Body", "Roll Body to Pitch Body 1", pitch_body_1, "Pitch Body 1",
+        constraints=Articulation.ROTATE_Y)
+    robot.add_connection(
+        "Pitch Body 1", "Roll Body to Pitch Body 1", pitch_body_2, "Pitch Body 2",
+        constraint=Articulation.ROTATE_Y)
+    robot.add_connection(
+        "Pitch Body 2", "Pitch Body 2 to Yaw Body", yaw_body, "Yaw Body",
+        constraint=Articulation.ROTATE_Z)
+    
