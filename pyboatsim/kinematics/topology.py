@@ -94,6 +94,7 @@ class Topology:
                 mass=0,
                 inertia_matrix=np.matrix(np.zeros((3,3))))
             }
+        self.body_list = None
         self.mass = None
         self.center_of_mass = None
         self.inertia_tensor = None
@@ -186,6 +187,9 @@ class Topology:
         self.center_of_mass = None
         self.inertia_tensor = None
 
+        # Body list is no longer valid
+        self.body_list = None
+
     def get_transform(
             self,
             from_body_name:str,
@@ -267,6 +271,23 @@ class Topology:
         self.mass = None
         self.center_of_mass = None
         self.inertia_tensor = None
+
+    def get_ordered_body_list(self):
+        if self.body_list is None:
+            number_of_parents = []
+            for body_name in self.bodies.keys():
+                n_of_p = 0
+                current_body_name = body_name
+                while current_body_name != "World": 
+                    current_body_name, _ = self.bodies[current_body_name]
+                    n_of_p += 1
+                number_of_parents.append((body_name, n_of_p))
+            sorted_number_of_parents = sorted(number_of_parents, key=lambda t: t[1])
+            self.body_list = zip(*sorted_number_of_parents)[0]
+        return self.body_list
+        
+
+
 
 if __name__ == "__main__":
 

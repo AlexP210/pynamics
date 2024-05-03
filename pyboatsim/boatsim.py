@@ -11,7 +11,7 @@ from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
 from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity, MeshBodyDrag
 from pyboatsim.math import linalg
-from pyboatsim.topology import Topology, Frame, Body
+from pyboatsim.kinematics.topology import Topology, Frame, Body
 
 class BoAtSim:
     def __init__(
