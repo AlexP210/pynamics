@@ -6,7 +6,7 @@ import scipy.integrate as integrate
 from pyboatsim.constants import AXES
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
-from pyboatsim.topology import Topology
+from pyboatsim.kinematics.topology import Topology
 
 class WaterWheel(DynamicsParent):
     def __init__(

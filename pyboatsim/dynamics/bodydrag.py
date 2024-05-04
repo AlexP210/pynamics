@@ -7,7 +7,7 @@ import trimesh
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 from pyboatsim.constants import AXES, EPSILON
-from pyboatsim.topology import Topology
+from pyboatsim.kinematics.topology import Topology
 
 class SimpleBodyDrag(DynamicsParent):
     def __init__(

@@ -2,7 +2,7 @@ import typing
 import abc
 
 from pyboatsim.state import State
-from pyboatsim.topology import Topology
+from pyboatsim.kinematics.topology import Topology
 
 class DynamicsParent(abc.ABC):
     def __init__(self, name):

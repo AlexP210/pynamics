@@ -2,6 +2,7 @@ import numpy as np
 from enum import Enum
 import typing as types
 from pyboatsim.constants import EPSILON
+from pyboatsim.kinematics.joint import Joint, FixedJoint, RevoluteJoint
 
 class Articulation:
     TRANSLATE_X = np.array([1,0,0,0,0,0])
@@ -94,16 +95,14 @@ class Topology:
                 mass=0,
                 inertia_matrix=np.matrix(np.zeros((3,3))))
             }
+        self.joints = {
+            "World": FixedJoint()
+        }
         self.body_list = None
         self.mass = None
         self.center_of_mass = None
         self.inertia_tensor = None
-        self.constraints = {
-            "World": np.array([False,False,False,False,False,False])
-        }
-        self.articulation = {
-            "World": np.array([0,0,0,0,0,0])
-        }
+
         # Initialize the mass properties
         self.get_mass()
         self.get_center_of_mass()
@@ -124,18 +123,7 @@ class Topology:
             to_frame_name:str
     ):  
         # Get the transformation for the articulation
-        parent_body_to_body_identity_translation = np.matrix(self.articulation[to_body_name][:3]).T
-        parent_body_to_body_identity_rotation = np.matrix(self.articulation[to_body_name][3:]).T
-        if np.linalg.norm(parent_body_to_body_identity_rotation) > EPSILON:
-            parent_body_to_body_identity_rotation_matrix = Frame.get_rotation_matrix(
-                angle = np.linalg.norm(parent_body_to_body_identity_rotation),
-                axis = parent_body_to_body_identity_rotation/np.linalg.norm(parent_body_to_body_identity_rotation)
-            )
-        else:
-            parent_body_to_body_identity_rotation_matrix = np.matrix(np.eye(3,3))
-        articulation_transformation = np.matrix(np.eye(4,4))
-        articulation_transformation[:3,:3] = parent_body_to_body_identity_rotation_matrix
-        articulation_transformation[:3,3] = parent_body_to_body_identity_translation
+        articulation_transformation = self.joints[to_body_name].get_T()
 
         body_identity_to_frame_transformation = self.bodies[to_body_name].frames[to_frame_name].matrix
         parent_body_name, parent_frame_name = self.tree[to_body_name]
@@ -164,8 +152,7 @@ class Topology:
             parent_frame_name:str,
             child_body:Body,
             child_body_name:str,
-            constraints:types.List[Articulation] = [],
-            articulation:np.array=np.zeros(6),
+            joint:Joint,
     ):
         self._assert_body_in_topology(parent_body_name)
         self._assert_body_not_in_topology(child_body_name)
@@ -173,14 +160,7 @@ class Topology:
 
         self.bodies[child_body_name] = child_body
         self.tree[child_body_name] = (parent_body_name, parent_frame_name)
-
-        self.constraints[child_body_name] = np.logical_or.reduce(constraints)
-        if (np.multiply(self.constraints[child_body_name], articulation) == articulation).all():
-            self.articulation[child_body_name] = articulation
-        else: raise ArticulationError(
-            f"Body {child_body_name} connected to ({parent_body_name}, {parent_frame_name})" 
-            f"with an invalid articulation. Constraints are {constraints}, but"
-            f"articulation {articulation} was provided.")
+        self.joints[child_body_name] = joint
 
         # Mass properties is no longer valid
         self.mass = None
@@ -333,14 +313,14 @@ if __name__ == "__main__":
     robot.add_connection("World", "Identity", base, "Base Body")
     robot.add_connection(
         "Base Body", "Base to Roll Body", roll_body, "Roll Body",
-        constraints=Articulation.ROTATE_X)
+        joint=RevoluteJoint(0))
     robot.add_connection(
         "Roll Body", "Roll Body to Pitch Body 1", pitch_body_1, "Pitch Body 1",
-        constraints=Articulation.ROTATE_Y)
+        joint=RevoluteJoint(0))
     robot.add_connection(
         "Pitch Body 1", "Roll Body to Pitch Body 1", pitch_body_2, "Pitch Body 2",
-        constraint=Articulation.ROTATE_Y)
+        joint=RevoluteJoint(0))
     robot.add_connection(
         "Pitch Body 2", "Pitch Body 2 to Yaw Body", yaw_body, "Yaw Body",
-        constraint=Articulation.ROTATE_Z)
+        joint=RevoluteJoint(0))
     

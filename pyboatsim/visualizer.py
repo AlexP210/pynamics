@@ -1,7 +1,8 @@
 import trimesh
 import numpy as np
 from pyboatsim.boatsim import BoAtSim
-from pyboatsim.topology import Topology
+from pyboatsim.kinematics.topology import Topology, Body, Frame
+from pyboatsim.kinematics.joint import RevoluteJoint, FixedJoint
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -229,8 +230,6 @@ class Visualizer:
 
 if __name__ == "__main__":
 
-    from pyboatsim.topology import Body, Frame, Articulation
-
     body = Body(
         mass=1,
         center_of_mass=np.matrix([0,0.0,0.0]).T,
@@ -256,14 +255,44 @@ if __name__ == "__main__":
         translation=np.matrix([1.0,0.0,0.1]).T, 
         rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
     )
+    modules_end1 = Frame(
+        translation=np.matrix([0.0,0.0,-3.0]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    )
+    modules_end2 = Frame(
+        translation=np.matrix([0.0,0.0,3.0]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    )
+
+    module_1_location = Frame(
+        translation=np.matrix([4.0,3.0,0.0]).T, 
+        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    )
+    module_2_location = Frame(
+        translation=np.matrix([4.0,0.0,3.0]).T, 
+        rotation=Frame.get_rotation_matrix(np.pi/2, np.matrix([1.0,0.0,0.0]).T)
+    )
+
 
     base = body.copy()
+    module1 = body.copy()
+    module2 = body.copy()
     roll_body = body.copy()
     pitch_body_1 = body.copy()
     pitch_body_2 = body.copy()
     yaw_body = body.copy()
-    
+
+
     base.add_frame(base_mounting_point, "Base to Roll Body")
+    base.add_frame(module_1_location, "Base to Module 1")
+    base.add_frame(module_2_location, "Base to Module 2")
+    base.add_frame(modules_end1, "End 1")
+    base.add_frame(modules_end2, "End 2")
+    module1.add_frame(modules_end1, "End 1")
+    module1.add_frame(modules_end2, "End 2")
+    module2.add_frame(modules_end1, "End 1")
+    module2.add_frame(modules_end2, "End 2")
+
     roll_body.add_frame(short_end, "Roll Body to Pitch Body 1")
     pitch_body_1.add_frame(long_end, "Pitch Body 1 to Pitch Body 2")
     pitch_body_2.add_frame(long_end_for_yaw, "Pitch Body 2 to Yaw Body")
@@ -271,30 +300,42 @@ if __name__ == "__main__":
 
 
     robot = Topology()
-    robot.add_connection("World", "Identity", base, "Base Body")
+    robot.add_connection("World", "Identity", base, "Base Body", joint=FixedJoint())
+    robot.add_connection(
+        "Base Body", "Base to Module 1", module1, "Module 1", joint=FixedJoint())
+    robot.add_connection(
+        "Base Body", "Base to Module 2", module2, "Module 2", joint=FixedJoint())
+
     robot.add_connection(
         "Base Body", "Base to Roll Body", roll_body, "Roll Body",
-        constraints=Articulation.ROTATE_X)
+        joint=RevoluteJoint(0))
     robot.add_connection(
         "Roll Body", "Roll Body to Pitch Body 1", pitch_body_1, "Pitch Body 1",
-        constraints=Articulation.ROTATE_Y)
+        joint=RevoluteJoint(1))
     robot.add_connection(
         "Pitch Body 1", "Pitch Body 1 to Pitch Body 2", pitch_body_2, "Pitch Body 2",
-        constraints=Articulation.ROTATE_Y)
+        joint=RevoluteJoint(1))
     robot.add_connection(
         "Pitch Body 2", "Pitch Body 2 to Yaw Body", yaw_body, "Yaw Body",
-        constraints=Articulation.ROTATE_Z)
-    
-    # robot.set_articulation("Roll Body", np.array([0,0,0,np.pi/2,0,0]))
-    # robot.set_articulation("Pitch Body 1", np.array([0,0,0,0,np.pi/4,0]))
-    # robot.set_articulation("Pitch Body 2", np.array([0,0,0,0,np.pi/2,0]))
-    robot.set_articulation("Yaw Body", np.array([0,0,0,0,0,np.pi/4]))
+        joint=RevoluteJoint(2))
+
+
+    robot.joints["Pitch Body 1"].set_configuration(np.matrix(np.pi/4))
+    robot.joints["Pitch Body 2"].set_configuration(np.matrix(-np.pi/4))
 
 
     vis = Visualizer(
         topology=robot,
         visualization_models={
             ("Base Body", "Identity"): trimesh.load(
+                file_obj="/home/alex/Projects/PyBoAtSim/models/link/Base.obj", 
+                file_type="obj", 
+                force="mesh"),
+            ("Module 1", "Identity"): trimesh.load(
+                file_obj="/home/alex/Projects/PyBoAtSim/models/link/Base.obj", 
+                file_type="obj", 
+                force="mesh"),
+            ("Module 2", "Identity"): trimesh.load(
                 file_obj="/home/alex/Projects/PyBoAtSim/models/link/Base.obj", 
                 file_type="obj", 
                 force="mesh"),
@@ -315,7 +356,4 @@ if __name__ == "__main__":
                 file_type="obj", 
                 force="mesh"),
         })
-    
     vis.view()
-
-

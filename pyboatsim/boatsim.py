@@ -16,14 +16,12 @@ from pyboatsim.kinematics.topology import Topology, Frame, Body
 class BoAtSim:
     def __init__(
             self,
-            state: State,
             dynamics: typing.List[DynamicsParent],
             topology: Topology
         ) -> None:
         """
         Initializer
         """
-        self.state = state
         self.history = []
         self.dynamics = dynamics
         self.dynamics_names = [
