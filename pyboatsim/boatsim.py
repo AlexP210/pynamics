@@ -24,32 +24,51 @@ class BoAtSim:
         """
         self.history = []
         self.dynamics = dynamics
-        self.dynamics_names = [
-            dynamics_module.name 
-            for dynamics_module in self.dynamics
-        ]
         self.topology = topology
-        self.required_labels = [
-            f"r_{axis}__boat" for axis in AXES
-        ] + [
-            f"v_{axis}__boat" for axis in AXES
-        ] + [
-            f"a_{axis}__boat" for axis in AXES
-        ] + [
-            f"theta_{axis}__boat" for axis in AXES
-        ] + [
-            f"omega_{axis}__boat" for axis in AXES
-        ] + [
-            f"alpha_{axis}__boat" for axis in AXES
-        ] + [
-            f"m__boat"
-        ] + [
-            f"I_{axis}{axis}__boat" for axis in AXES
-        ] + [
-            f"c_{axis}__boat" for axis in AXES
-        ] + [
-            "t"
-        ]
+
+    def inverse_dynamics(self):
+        # Get the ordered list of bodies to iterate over
+        body_names = self.topology.get_ordered_body_list()
+        # Initialize the states to track velocity & acceleration
+        velocity_state = State(self.topology)
+        acceleration_state = State(self.topology)
+        force_state = State(self.topology)
+        constraint_force_state = State(self.topology)
+        velocity_state[body_names[0]] = np.matrix(np.zeros(6)).T
+        acceleration_state[body_names[0]] = np.matrix(np.zeros(6)).T
+        # Algorithm
+        S = {}
+        for body_name in body_names[1:]:
+            joint = self.topology.joints[body_name]
+            parent_body_name, parent_frame_name = self.topology.bodies[body_name]
+            X_J = joint.get_X()
+            X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
+            S_i = joint.get_motion_subspace()
+            S[body_name] = S_i
+            v_J = joint.get_velocity()
+            c_J = joint.get_c()
+            i__X__lambda_i = X_J @ X_T
+            i_X_0 = self.topology.get_X("World", "Identity", body_name, "Identity")
+            i_X_0_star = linalg.X_star(i_X_0)
+
+            velocity_state[body_name] = i__X__lambda_i @ velocity_state[parent_body_name] + v_J
+            
+            a1 = i__X__lambda_i @ acceleration_state[parent_body_name]
+            a2 = S_i @ self.joints[body_name].q_dd
+            a3 = c_J + linalg.cross(velocity_state[body_name]) @ v_J
+            acceleration_state[body_name] = a1 + a2 + a3
+
+            f1 = self.bodies[body_name].mass_matrix @ acceleration_state[body_name]
+            f2 = linalg.cross_star(velocity_state[body_name]) @ self.bodies[body_name].mass_matrix @ velocity_state[body_name]
+            # f3 = None # TODO: External forces would go here as i_X_0_star @ f_x
+            force_state[body_name] = f1+f2
+        for body_name in body_names[-1:0:-1]:
+            constraint_force_state[body_name] = S[body_name].T @ force_state[body_name]
+            parent_name = self.topology.tree[body_name]
+            if parent_name != "World":
+                force_state[parent_name] += self.topology.get_X(body_name,"Identity",parent_body_name,"Identity") @ force_state[body_name]
+
+        return constraint_force_state
 
     def _compute_accelerations(self):
         # Force and Moment
@@ -184,3 +203,18 @@ class BoAtSim:
 
     def get_history_as_dataframe(self):
         return pd.DataFrame.from_dict(self.history)
+
+if __name__ == "__main__":
+    from pyboatsim.example.example_topology import robot
+
+    robot.joints["Pitch Body 1"].set_configuration(np.matrix(np.pi/4))
+    robot.joints["Pitch Body 2"].set_configuration(np.matrix(-np.pi/4))
+
+    robot.joints["Pitch Body 1"].set_qdd((np.matrix(np.pi/4))/100)
+    robot.joints["Pitch Body 2"].set_qdd((np.matrix(np.pi/4))/100)
+
+    sim = BoAtSim(topology=robot)
+
+    for body_name, force in sim.inverse_dynamics().items():
+        print(body_name, force)
+

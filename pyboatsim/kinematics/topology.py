@@ -3,6 +3,7 @@ from enum import Enum
 import typing as types
 from pyboatsim.constants import EPSILON
 from pyboatsim.kinematics.joint import Joint, FixedJoint, RevoluteJoint
+import pyboatsim.math.linalg as linalg
 
 class Articulation:
     TRANSLATE_X = np.array([1,0,0,0,0,0])
@@ -42,6 +43,15 @@ class Frame:
             [y*x*C+z*s, y*y*C+c, y*z*C-x*s],
             [z*x*C-y*s, z*y*C+x*s, z*z*C+c]
         ])
+    
+    def get_X(self):
+        E = self.rotation
+        r = self.translation
+        r_cross = linalg.cross_product_matrix(r)
+        return np.block([
+            [E, np.zeros((3,3))],
+            [-E@r_cross, E]
+        ])
 
 class Body:
 
@@ -54,6 +64,11 @@ class Body:
         self.mass = mass
         self.center_of_mass = center_of_mass
         self.inertia_matrix = inertia_matrix
+        # Pg. 33
+        self.mass_matrix = np.matrix(np.block([
+            [self.inertia_matrix, self.mass*linalg.R3_cross_product_matrix(self.center_of_mass)],
+            [self.mass*linalg.R3_cross_product_matrix(self.center_of_mass).T, self.mass*np.eye(3,3)]
+        ]))
         self.frames = {
             "Identity": Frame(),
             "Center of Mass": Frame(translation=center_of_mass)
@@ -74,6 +89,9 @@ class Body:
             frame_name:str
         ):
         self.frames[frame_name] = frame
+
+    def get_X(self, frame_name):
+        self.frames[frame_name].get_X()
 
     def copy(self):
         body_copy =  Body(
@@ -179,6 +197,22 @@ class Topology:
     ):
         return np.linalg.inv(self._get_transform_from_root(from_body_name, from_frame_name)) * self._get_transform_from_root(to_body_name, to_frame_name)
     
+    def get_X(
+        self,
+        from_body_name:str,
+        from_frame_name:str,
+        to_body_name:str,
+        to_frame_name:str
+    ):
+        T = self.get_transform(from_body_name, from_frame_name, to_body_name, to_frame_name)
+        E = T[:3,:3]
+        r = T[:3,3]
+        r_cross = linalg.cross_product_matrix(r)
+        return np.block([
+            [E, np.zeros((3,3))],
+            [-E@r_cross, E]
+        ])
+
     def get_mass(self):
         if self.mass is not None: return self.mass
         return sum([body.mass for body in self.bodies.values()])
@@ -240,18 +274,6 @@ class Topology:
         self.inertia_tensor = topology_inertia_tensor
         return self.inertia_tensor
 
-    def set_articulation(self, body_name, articulation):
-        if (np.multiply(self.constraints[body_name], articulation) == articulation).all():
-            self.articulation[body_name] = articulation
-        else: raise ArticulationError(
-            f"Body {body_name} was given" 
-            f" an invalid articulation. Constraints are {self.constraints[body_name]}, but"
-            f" articulation {articulation} was provided.")
-        # Mass properties is no longer valid
-        self.mass = None
-        self.center_of_mass = None
-        self.inertia_tensor = None
-
     def get_ordered_body_list(self):
         if self.body_list is None:
             number_of_parents = []
@@ -266,8 +288,6 @@ class Topology:
             self.body_list = zip(*sorted_number_of_parents)[0]
         return self.body_list
         
-
-
 
 if __name__ == "__main__":
 

@@ -2,7 +2,7 @@ import numpy as np
 import trimesh
 import tqdm
 
-from pyboatsim.topology import Body, Frame, Articulation, Topology
+from pyboatsim.kinematics.topology import Body, Frame, Articulation, Topology
 from pyboatsim.visualizer import Visualizer
 
 body = Body(
