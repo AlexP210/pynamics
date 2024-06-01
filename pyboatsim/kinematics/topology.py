@@ -44,14 +44,6 @@ class Frame:
             [z*x*C-y*s, z*y*C+x*s, z*z*C+c]
         ])
     
-    def get_X(self):
-        E = self.rotation
-        r = self.translation
-        r_cross = linalg.cross_product_matrix(r)
-        return np.block([
-            [E, np.zeros((3,3))],
-            [-E@r_cross, E]
-        ])
 
 class Body:
 
@@ -89,9 +81,6 @@ class Body:
             frame_name:str
         ):
         self.frames[frame_name] = frame
-
-    def get_X(self, frame_name):
-        self.frames[frame_name].get_X()
 
     def copy(self):
         body_copy =  Body(
@@ -207,11 +196,27 @@ class Topology:
         T = self.get_transform(from_body_name, from_frame_name, to_body_name, to_frame_name)
         E = T[:3,:3]
         r = T[:3,3]
-        r_cross = linalg.cross_product_matrix(r)
+        r_cross = linalg.R3_cross_product_matrix(r)
         return np.block([
             [E, np.zeros((3,3))],
             [-E@r_cross, E]
         ])
+    def get_Xstar(
+        self,
+        from_body_name:str,
+        from_frame_name:str,
+        to_body_name:str,
+        to_frame_name:str
+    ):
+        T = self.get_transform(from_body_name, from_frame_name, to_body_name, to_frame_name)
+        E = T[:3,:3]
+        r = T[:3,3]
+        r_cross = linalg.R3_cross_product_matrix(r)
+        return np.block([
+            [E, -E@r_cross],
+            [np.zeros((3,3)), E]
+        ])
+
 
     def get_mass(self):
         if self.mass is not None: return self.mass
@@ -274,6 +279,37 @@ class Topology:
         self.inertia_tensor = topology_inertia_tensor
         return self.inertia_tensor
 
+    def get_mass_matrix(self):
+        number_of_degrees_of_freedom = sum([j.get_number_of_degrees_of_freedom() for j in self.joints])
+        H = np.matrix(np.zeros(shape=(number_of_degrees_of_freedom, number_of_degrees_of_freedom)))
+        body_names = self.get_ordered_body_list()
+        I_Cs = {}
+        body_name_to_number = {}
+        for i, body_name in enumerate(body_names[1:]):
+            I_Cs[body_name] = self.bodies[body_name].mass_matrix
+            body_name_to_number[body_name] = i
+        for body_name in body_names[-1:0:-1]:
+            parent_name, _ = self.tree[body_name]
+            if parent_name != "World":
+                lambda_i_xstar_i = self.get_Xstar(body_name, "Identity", parent_name, "Identity")
+                i_x_lambda_i = self.get_X(parent_name, "Identity", body_name, "Identity")
+                I_Cs[parent_name] += lambda_i_xstar_i @ I_Cs[body_name] @ i_x_lambda_i
+            joint = self.joints[body_name]
+            n_dof = joint.get_number_degrees_of_freedom()
+            S_i = joint.get_motion_subspace()
+
+            F = I_Cs[body_name] @ S_i
+            H[i:i+n_dof, i:i+n_dof] = S_i.T @ F
+            j = i
+            while self.tree[body_names[j]] != "World":
+                parent_of_j = self.tree[body_names[j]]
+                F = self.get_Xstar(body_names[j], "Identity", parent_of_j, "Identity") @ F
+                j = body_name_to_number[parent_of_j]
+                n_dof_j = self.joints[body_names[j]].get_number_degrees_of_freedom()
+                H[i:i+n_dof,j:j+n_dof_j] = F.T @ self.joints[body_names[j]].get_motion_subspace()
+                H[j:j+n_dof_j,i:i+n_dof] = H[i:i+n_dof,j:j+n_dof_j].T
+        return H
+
     def get_ordered_body_list(self):
         if self.body_list is None:
             number_of_parents = []
@@ -281,11 +317,11 @@ class Topology:
                 n_of_p = 0
                 current_body_name = body_name
                 while current_body_name != "World": 
-                    current_body_name, _ = self.bodies[current_body_name]
+                    current_body_name, _ = self.tree[current_body_name]
                     n_of_p += 1
                 number_of_parents.append((body_name, n_of_p))
             sorted_number_of_parents = sorted(number_of_parents, key=lambda t: t[1])
-            self.body_list = zip(*sorted_number_of_parents)[0]
+            self.body_list = list(zip(*sorted_number_of_parents))[0]
         return self.body_list
         
 

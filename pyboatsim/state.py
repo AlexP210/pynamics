@@ -13,18 +13,23 @@ class State:
     """
 
     def __init__(self, topology:Topology):
-        self.data = {"time": []}
+        self.data = {}
         for body_name in topology.get_ordered_body_list():
-            self.data[body_name] = []
+            self.data[body_name] = None
 
-    def __getitem__(self, body_names:typing.List[str]=None) -> typing.Dict[str, float]:
+    def __getitem__(self, body_name:str) -> typing.Dict[str, float]:
         """
         Returns (a subset of) the state.
         """
-        return {body_name: self.data[body_name] for body_name in body_names}
+        return self.data[body_name]
             
     def __setitem__(self, body_name, value):
         self.data[body_name] = value
 
     def bodies(self):
         return self.data.keys()
+    
+    def clear(self):
+        self.data = {}
+        for body_name in self.data.keys():
+            self.data[body_name] = None

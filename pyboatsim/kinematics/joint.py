@@ -16,23 +16,30 @@ class Joint(abc.ABC):
     def get_c(self): pass
     
     def get_motion_subspace(self):
-        return self.motion_subspace
+        if self.motion_subspace.size != 0: return self.motion_subspace
+        else: return np.matrix(np.zeros(shape=(6,6)))
     def get_constraint_force_subspace(self):
         return self.constraint_force_subspace
     def get_velocity(self):
         return self.get_motion_subspace()@self.get_configuration_d()
+    def get_acceleration(self):
+        return self.get_motion_subspace()@self.get_configuration_dd()
     def get_configuration(self):
         return self.q
     def get_configuration_d(self):
         return self.q_d
     def get_configuration_dd(self):
         return self.q_dd
+    def get_generalized_force(self):
+        return self.generalized_force
     def set_configuration(self, configuration):
         self.q = configuration
     def set_configuration_d(self, configuration_d):
         self.q_d = configuration_d
     def set_configuration_dd(self, configuration_dd):
         self.q_dd = configuration_dd
+    def set_generalized_force(self, generalized_force):
+        self.generalized_force = generalized_force
     def get_number_degrees_of_freedom(self):
         return self.q.size
     def get_T(self):
@@ -48,7 +55,7 @@ class Joint(abc.ABC):
     def get_X(self):
         E = self.get_rotation_matrix()
         r = self.get_translation_vector()
-        r_cross = linalg.cross_product_matrix(r)
+        r_cross = linalg.R3_cross_product_matrix(r)
         return np.block([
             [E, np.zeros((3,3))],
             [-E@r_cross, E]
@@ -62,11 +69,10 @@ class Joint(abc.ABC):
             [np.zeros((3,3)), E]
         )
 
-
 class RevoluteJoint(Joint):
     def __init__(self, axis:int):
         self.axis = axis
-        self.motion_subspace = np.matrix(np.zeros(6)).T
+        self.motion_subspace = np.matrix(np.zeros((6,1)))
         self.motion_subspace[axis] = 1
         self.constraint_force_subspace = np.matrix(np.zeros(shape=(6,5)))
 
@@ -101,7 +107,7 @@ class RevoluteJoint(Joint):
 
 class FreeJoint(Joint):
     def __init__(self):
-        self.motion_subspace = np.matrix(np.eye(6,6)).T
+        self.motion_subspace = np.matrix(np.eye(6,6))
         self.constraint_force_subspace = 0
         self.q = np.matrix(np.zeros(1)).T
         self.q_d = np.matrix(np.zeros(self.q.shape)).T
@@ -130,11 +136,11 @@ class FreeJoint(Joint):
 
 class FixedJoint(Joint):
     def __init__(self):
-        self.motion_subspace = 0
+        self.motion_subspace = np.matrix([[]]).T
         self.constraint_force_subspace = np.matrix(np.eye(6,6)).T
-        self.q = np.matrix([]).T
-        self.q_d = np.matrix([]).T
-        self.q_dd = np.matrix([]).T
+        self.q = np.matrix([[]])
+        self.q_d = np.matrix([[]])
+        self.q_dd = np.matrix([[]])
         
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3,1)))
@@ -144,7 +150,10 @@ class FixedJoint(Joint):
         return np.matrix(np.eye(3,3))
     def get_c(self):
         return 0
-
+    def get_velocity(self):
+        return np.matrix(np.zeros(shape=(6,1)))
+    def get_acceleration(self):
+        return np.matrix(np.zeros(shape=(6,1)))
 
 if __name__ == "__main__":
     joint = RevoluteJoint(axis=0)
