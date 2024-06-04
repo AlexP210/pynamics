@@ -30,16 +30,12 @@ class Joint(abc.ABC):
         return self.q_d
     def get_configuration_dd(self):
         return self.q_dd
-    def get_generalized_force(self):
-        return self.generalized_force
     def set_configuration(self, configuration):
         self.q = configuration
     def set_configuration_d(self, configuration_d):
         self.q_d = configuration_d
     def set_configuration_dd(self, configuration_dd):
         self.q_dd = configuration_dd
-    def set_generalized_force(self, generalized_force):
-        self.generalized_force = generalized_force
     def get_number_degrees_of_freedom(self):
         return self.q.size
     def get_T(self):

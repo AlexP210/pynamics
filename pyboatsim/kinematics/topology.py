@@ -51,11 +51,15 @@ class Body:
             self, 
             mass:float=1,
             center_of_mass:np.matrix=np.zeros((3,1)),
-            inertia_matrix:np.matrix=np.eye(3,3)
+            inertia_matrix:np.matrix=np.eye(3,3),
+            velocity:np.matrix=np.matrix(np.zeros((6,1))),
+            acceleration:np.matrix=np.matrix(np.zeros((6,1))),
         ):
         self.mass = mass
         self.center_of_mass = center_of_mass
         self.inertia_matrix = inertia_matrix
+        self.velocity = velocity
+        self.acceleration = acceleration
         # Pg. 33
         self.mass_matrix = np.matrix(np.block([
             [self.inertia_matrix, self.mass*linalg.R3_cross_product_matrix(self.center_of_mass)],
@@ -82,6 +86,16 @@ class Body:
         ):
         self.frames[frame_name] = frame
 
+    def get_velocity(self):
+        return self.velocity
+    def get_acceleration(self):
+        return self.acceleration
+    
+    def set_velocity(self, velocity):
+        self.velocity = velocity
+    def set_acceleration(self, acceleration):
+        self.acceleration = acceleration
+    
     def copy(self):
         body_copy =  Body(
             mass=self.mass, 
@@ -324,6 +338,51 @@ class Topology:
             self.body_list = list(zip(*sorted_number_of_parents))[0]
         return self.body_list
         
+    def calculate_body_velocities(self):
+        body_velocities = {}
+        body_names = self.get_ordered_body_list()
+        body_velocities[body_names[0]] = np.matrix(np.zeros(6)).T
+        for body_name in body_names[1:]:
+            joint = self.joints[body_name]
+            parent_body_name, parent_frame_name = self.tree[body_name]
+            X_J = joint.get_X()
+            X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
+            v_J = joint.get_velocity()
+            i__X__lambda_i = X_J @ X_T
+            i_X_0 = self.get_X("World", "Identity", body_name, "Identity")
+            body_velocities[body_name] = i__X__lambda_i @ self.bodies[parent_body_name].get_velocity() + v_J
+        return body_velocities
+    
+    def update_body_velocities(self):
+        for body_name, velocity in self.calculate_body_velocities().items():
+            self.bodies[body_name].set_velocity(velocity)
+
+    def calculate_body_accelerations(self):
+        body_accelerations = {}
+        body_names = self.topology.get_ordered_body_list()
+        # Initialize the states to track velocity & acceleration
+        body_accelerations[body_names[0]] = np.matrix(np.zeros(6)).T
+        for body_name in body_names[1:]:
+            joint = self.joints[body_name]
+            parent_body_name, parent_frame_name = self.tree[body_name]
+            X_J = joint.get_X()
+            X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
+            v_J = joint.get_velocity()
+            i__X__lambda_i = X_J @ X_T
+            i_X_0 = self.get_X("World", "Identity", body_name, "Identity")
+            c_J = joint.get_c()
+
+            a1 = i__X__lambda_i @ self.bodies[parent_body_name].get_acceleration()
+            a2 = joint.get_acceleration()
+            a3 = c_J + linalg.cross(self.bodies[body_name].get_velocity()) @ v_J
+            body_accelerations[body_name] = a1 + a2 + a3
+
+        return body_accelerations
+
+
+    def update_body_accelerations(self):
+        for body_name, acceleration in self.calculate_body_accelerations().items():
+            self.bodies[body_name].set_acceleration(acceleration)
 
 if __name__ == "__main__":
 
