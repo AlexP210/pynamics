@@ -1,7 +1,7 @@
 import typing
 import abc
+import numpy as np
 
-from pyboatsim.state import State
 from pyboatsim.kinematics.topology import Topology
 
 class DynamicsParent(abc.ABC):
@@ -14,37 +14,14 @@ class DynamicsParent(abc.ABC):
         self.name = name
 
     @abc.abstractmethod
-    def compute_dynamics(self, state:State, topology:Topology, dt:float) -> State:
+    def compute_dynamics(self, topology:Topology, body_name:str) -> np.matrix:
         """
         Each instance of Dynamics needs to implement a calculation of the 
-        dynamics, adding a state
+        dynamics, to compute the 6-D force/moment vector given a topology and body_name
         """
         raise NotImplementedError(
             "Implement `compute_dynamics()` in your `Dynamics` subclass."
             )
-    
-    @abc.abstractmethod
-    def required_state_labels(self):
-        """
-        Each instance of Dynamics needs to implement a function stating what
-        labels need to exist in the state dictionary in order for it to work
-        """
-        raise NotImplementedError(
-            "Implement `required_state_labels()` in your `Dynamics` subclass."
-            )
 
-
-    def __call__(self, state:State, topology:Topology, dt:float) -> float:
-        """
-        Handles checking if the passed `State` object contains all the required
-        labels, printing a helpful error message if not, and calculating 
-        dynamics afterwards.
-        """
-        missing_labels = [
-            label 
-            for label in self.required_state_labels() if not label in state.labels()
-        ]
-        if len(missing_labels) != 0: raise ValueError(
-            f"The following labels are missing from the sim state, dynamics"
-            f" cannot be calculated: {', '.join(missing_labels)}")
-        return self.compute_dynamics(state, topology, dt)
+    def __call__(self, topology:Topology, body_name:str) -> float:
+        return self.compute_dynamics(topology, body_name)

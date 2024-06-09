@@ -3,4 +3,4 @@ from pyboatsim.dynamics.bodydrag import SimpleBodyDrag, MeshBodyDrag
 from pyboatsim.dynamics.waterwheel import WaterWheel
 from pyboatsim.dynamics.constant_force import ConstantForce
 from pyboatsim.dynamics.buoyancy import MeshBuoyancy
-from pyboatsim.dynamics.gravity import MeshGravity
+from pyboatsim.dynamics.gravity import Gravity

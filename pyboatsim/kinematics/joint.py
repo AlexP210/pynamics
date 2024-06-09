@@ -22,8 +22,8 @@ class Joint(abc.ABC):
         return self.constraint_force_subspace
     def get_velocity(self):
         return self.get_motion_subspace()@self.get_configuration_d()
-    def get_acceleration(self):
-        return self.get_motion_subspace()@self.get_configuration_dd()
+    def get_acceleration(self, q_dd):
+        return self.get_motion_subspace()@q_dd
     def get_configuration(self):
         return self.q
     def get_configuration_d(self):
@@ -148,11 +148,13 @@ class FixedJoint(Joint):
         return 0
     def get_velocity(self):
         return np.matrix(np.zeros(shape=(6,1)))
-    def get_acceleration(self):
+    def get_acceleration(self, q_dd):
         return np.matrix(np.zeros(shape=(6,1)))
 
 if __name__ == "__main__":
     joint = RevoluteJoint(axis=0)
     joint.set_configuration(np.matrix([[1]]))
     joint.set_configuration_d(np.matrix([[1]]))
-    print(joint.get_velocity())
+
+    joint2 = FixedJoint()
+    print(joint2.get_number_degrees_of_freedom())

@@ -1,6 +1,6 @@
 import trimesh
 import numpy as np
-from pyboatsim.boatsim import BoAtSim
+from pyboatsim.boatsim import Sim
 from pyboatsim.kinematics.topology import Topology, Body, Frame
 from pyboatsim.kinematics.joint import RevoluteJoint, FixedJoint
 from mpl_toolkits.mplot3d import Axes3D
@@ -36,13 +36,13 @@ class Visualizer:
             self, 
             topology:Topology,
             visualization_models:typing.Dict,
-            boatsim:BoAtSim=None, 
+            boatsim:Sim=None, 
         ):
         self.topology=topology
         self.visualization_models = visualization_models
         if boatsim is not None: self.add_sim_data(boatsim=boatsim)
 
-    def add_sim_data(self, boatsim:BoAtSim):
+    def add_sim_data(self, boatsim:Sim):
         self.boatsim = boatsim
         self.data = self.boatsim.get_history_as_dataframe()
         self.force_magnitudes = {}

@@ -110,7 +110,7 @@ class Topology:
     def __init__(
             self, 
     ):
-        self.tree = {"World": ("World", "Identity")}
+        self.tree = {}
         self.bodies = {
             "World": Body(
                 mass=0,
@@ -144,11 +144,11 @@ class Topology:
             to_frame_name:str
     ):  
         # Get the transformation for the articulation
+        body_identity_to_frame_transformation = self.bodies[to_body_name].frames[to_frame_name].matrix
         articulation_transformation = self.joints[to_body_name].get_T()
 
-        body_identity_to_frame_transformation = self.bodies[to_body_name].frames[to_frame_name].matrix
-        parent_body_name, parent_frame_name = self.tree[to_body_name]
-        if parent_body_name != to_body_name: 
+        if to_body_name != "World":
+            parent_body_name, parent_frame_name = self.tree[to_body_name]
             return self._get_transform_from_root(parent_body_name, parent_frame_name) * articulation_transformation * body_identity_to_frame_transformation
         else:
             return articulation_transformation * body_identity_to_frame_transformation
@@ -294,35 +294,42 @@ class Topology:
         return self.inertia_tensor
 
     def get_mass_matrix(self):
-        number_of_degrees_of_freedom = sum([j.get_number_of_degrees_of_freedom() for j in self.joints])
+        number_of_degrees_of_freedom = sum([j.get_number_degrees_of_freedom() for j in self.joints.values()])
         H = np.matrix(np.zeros(shape=(number_of_degrees_of_freedom, number_of_degrees_of_freedom)))
+        dic = {}
         body_names = self.get_ordered_body_list()
         I_Cs = {}
-        body_name_to_number = {}
-        for i, body_name in enumerate(body_names[1:]):
+        body_name_to_number = {"World": 0}
+        for body_number, body_name in list(enumerate(body_names))[1:]:
             I_Cs[body_name] = self.bodies[body_name].mass_matrix
-            body_name_to_number[body_name] = i
-        for body_name in body_names[-1:0:-1]:
-            parent_name, _ = self.tree[body_name]
-            if parent_name != "World":
-                lambda_i_xstar_i = self.get_Xstar(body_name, "Identity", parent_name, "Identity")
-                i_x_lambda_i = self.get_X(parent_name, "Identity", body_name, "Identity")
-                I_Cs[parent_name] += lambda_i_xstar_i @ I_Cs[body_name] @ i_x_lambda_i
-            joint = self.joints[body_name]
-            n_dof = joint.get_number_degrees_of_freedom()
-            S_i = joint.get_motion_subspace()
+            body_name_to_number[body_name] = body_number
 
-            F = I_Cs[body_name] @ S_i
-            H[i:i+n_dof, i:i+n_dof] = S_i.T @ F
+        for i, body_name_i in list(enumerate(body_names))[-1:0:-1]:
+            parent_body_name_i, _ = self.tree[body_name_i]
+            if parent_body_name_i != "World":
+                lambda_i_xstar_i = self.get_Xstar(body_name_i, "Identity", parent_body_name_i, "Identity")
+                i_x_lambda_i = self.get_X(parent_body_name_i, "Identity", body_name_i, "Identity")
+                I_Cs[parent_body_name_i] += lambda_i_xstar_i @ I_Cs[body_name_i] @ i_x_lambda_i
+            joint_i = self.joints[body_name_i]
+            n_dof_i = joint_i.get_number_degrees_of_freedom()
+            S_i = joint_i.get_motion_subspace()
+
+            F = I_Cs[body_name_i] @ S_i
+            dic[(body_name_i, body_name_i)] = S_i.T @ F
             j = i
-            while self.tree[body_names[j]] != "World":
-                parent_of_j = self.tree[body_names[j]]
-                F = self.get_Xstar(body_names[j], "Identity", parent_of_j, "Identity") @ F
-                j = body_name_to_number[parent_of_j]
-                n_dof_j = self.joints[body_names[j]].get_number_degrees_of_freedom()
-                H[i:i+n_dof,j:j+n_dof_j] = F.T @ self.joints[body_names[j]].get_motion_subspace()
-                H[j:j+n_dof_j,i:i+n_dof] = H[i:i+n_dof,j:j+n_dof_j].T
-        return H
+            body_name_j = body_names[j]
+            parent_body_name_j, _ = self.tree[body_names[j]]
+            while parent_body_name_j != "World":
+                F = self.get_Xstar(body_name_j, "Identity", parent_body_name_j, "Identity") @ F
+                j = body_name_to_number[parent_body_name_j]
+                body_name_j = body_names[j]
+                parent_body_name_j, _ = self.tree[body_names[j]]
+                n_dof_j = self.joints[body_name_j].get_number_degrees_of_freedom()
+                H[i:i+n_dof_i,j:j+n_dof_j] = F.T @ self.joints[body_name_j].get_motion_subspace()
+                H[j:j+n_dof_j,i:i+n_dof_i] = H[i:i+n_dof_i,j:j+n_dof_j].T
+                dic[(body_name_i, body_name_j)] = F.T @ self.joints[body_name_j].get_motion_subspace()
+                dic[(body_name_j, body_name_i)] = dic[(body_name_i, body_name_j)].T
+        return self.matrixify(dic)
 
     def get_ordered_body_list(self):
         if self.body_list is None:
@@ -340,6 +347,9 @@ class Topology:
         
     def calculate_body_velocities(self):
         body_velocities = {}
+        # TODO: calculate_body_velocities should be able to calculate velocities as-is using what's stored in the topology,
+        # OR using a substituted value from the arguments list
+        # Does it make sense to not have the topology store any motion info at all?
         body_names = self.get_ordered_body_list()
         body_velocities[body_names[0]] = np.matrix(np.zeros(6)).T
         for body_name in body_names[1:]:
@@ -357,23 +367,32 @@ class Topology:
         for body_name, velocity in self.calculate_body_velocities().items():
             self.bodies[body_name].set_velocity(velocity)
 
-    def calculate_body_accelerations(self):
+    def calculate_body_accelerations(self, q_dd):
         body_accelerations = {}
-        body_names = self.topology.get_ordered_body_list()
+        if type(q_dd) == type(np.matrix(0)):
+            joint_accelerations = self.dictionarify(q_dd)
+        elif type(q_dd) == type(dict()):
+            joint_accelerations = q_dd
+        body_names = self.get_ordered_body_list()
         # Initialize the states to track velocity & acceleration
         body_accelerations[body_names[0]] = np.matrix(np.zeros(6)).T
         for body_name in body_names[1:]:
             joint = self.joints[body_name]
+            if body_name in joint_accelerations:
+                joint_acceleration = joint_accelerations[body_name]
+            else:
+                joint_acceleration = np.matrix(np.zeros(shape=(joint.get_number_degrees_of_freedom(),1)))
             parent_body_name, parent_frame_name = self.tree[body_name]
             X_J = joint.get_X()
             X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
+            S_i = joint.get_motion_subspace()
             v_J = joint.get_velocity()
             i__X__lambda_i = X_J @ X_T
             i_X_0 = self.get_X("World", "Identity", body_name, "Identity")
             c_J = joint.get_c()
 
-            a1 = i__X__lambda_i @ self.bodies[parent_body_name].get_acceleration()
-            a2 = joint.get_acceleration()
+            a1 = i__X__lambda_i @ body_accelerations[parent_body_name]
+            a2 = joint.get_acceleration(joint_acceleration)
             a3 = c_J + linalg.cross(self.bodies[body_name].get_velocity()) @ v_J
             body_accelerations[body_name] = a1 + a2 + a3
 
@@ -383,6 +402,65 @@ class Topology:
     def update_body_accelerations(self):
         for body_name, acceleration in self.calculate_body_accelerations().items():
             self.bodies[body_name].set_acceleration(acceleration)
+
+
+    def vectorify(self, dictionary):
+        body_names = self.get_ordered_body_list()
+        dof = [self.joints[body_name].get_number_degrees_of_freedom() for body_name in body_names]
+        N = sum(dof)
+        vector = np.matrix(np.zeros(shape=(N,1)))
+        s = 0
+        for i in range(len(body_names)):
+            body_name = body_names[i]
+            if body_name not in dictionary:
+                vector_elements = np.matrix(np.zeros(shape=(dof[i],1)))
+            else:
+                vector_elements = dictionary[body_names[i]]
+            vector[s:s+dof[i],0] = vector_elements
+            s+=dof[i]
+        return vector
+    
+    def matrixify(self, dictionary):
+        body_names = self.get_ordered_body_list()
+        dof = [self.joints[body_name].get_number_degrees_of_freedom() for body_name in body_names]
+        N = sum(dof)
+        matrix = np.matrix(np.zeros(shape=(N,N)))
+        s_i = 0
+        for i, body_name_i in enumerate(body_names):
+            s_j = 0
+            for j, body_name_j in enumerate(body_names):
+                if (body_name_i, body_name_j) in dictionary:
+                    matrix_elements = dictionary[(body_name_i, body_name_j)]
+                else:
+                    matrix_elements = np.matrix(np.zeros(shape=(dof[i], dof[j])))
+                matrix[s_i:s_i+dof[i], s_j:s_j+dof[j]] = matrix_elements
+                s_j += dof[j]
+            s_i += dof[i]
+        return matrix
+
+    
+    def dictionarify(self, vector):
+        body_names = self.get_ordered_body_list()
+        dof = {body_name: self.joints[body_name].get_number_degrees_of_freedom() for body_name in body_names}
+        s = 0
+        dictionary = {}
+        for body_name in body_names:
+            dictionary[body_name] = vector[s:s+dof[body_name],0]
+            s += dof[body_name]
+        return dictionary
+
+    def get_joint_space_positions(self):
+        return {
+            body_name: self.joints[body_name].get_configuration()
+            for body_name in self.get_ordered_body_list()
+        }
+
+    def get_joint_space_velocities(self):
+        return {
+            body_name: self.joints[body_name].get_configuration_d()
+            for body_name in self.get_ordered_body_list()
+        }
+
 
 if __name__ == "__main__":
 
