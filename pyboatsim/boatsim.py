@@ -32,6 +32,9 @@ class Sim:
         self.joint_space_velocity_history = [
             self.topology.get_joint_space_velocities(),
         ]
+        self.time_history = [
+            0
+        ]
 
     def inverse_dynamics(self, q_dd):
 
@@ -147,6 +150,7 @@ class Sim:
             #     )
         self.joint_space_position_history.append(self.topology.get_joint_space_positions())
         self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
+        self.time_history.append(self.time_history[-1]+dt)
         self.topology.update_body_velocities()
 
         return
@@ -173,26 +177,26 @@ if __name__ == "__main__":
     np.seterr(all='raise')
 
 
-    pendulum, pendulum_vis = get_pendulum(1)
+    N = 1
+    pendulum, pendulum_vis = get_pendulum(N)
+    pendulum.joints["Arm 0"].set_configuration(np.matrix([0.8*np.pi/2]))
     sim = Sim(
         topology=pendulum, 
         body_dynamics=[
-            Gravity("gravity", -1, 2)
+            Gravity("gravity", -9.81, 2)
         ])
-
+    # pendulum_vis.view()
     # sim.step(0.01)
 
-    sim.simulate(30, 0.01, verbose=True)
-    pendulum_vis.add_sim_data(sim)
-    pendulum_vis.animate(0.01, save_path="Test_Multibody_Test.mp4")
+    sim.simulate(10, 0.01, verbose=True)
+    # pendulum_vis.add_sim_data(sim)
+    # pendulum_vis.animate(0.01, save_path=f"Test_Multibody_{N}.mp4")
 
+    Y = []
     X = []
     for joint_space_positions in sim.joint_space_position_history:
         X.append(joint_space_positions["Arm 0"][0,0])
 
-    # plt.plot(X)
-    # plt.show()
-
-
-
-
+    plt.scatter(sim.time_history, X, c="r", marker="x", s=0.5)
+    plt.plot(sim.time_history, [-0.2*np.pi/2 * np.cos(np.sqrt(9.81) * t) + np.pi/2 for t in sim.time_history])
+    plt.show()
