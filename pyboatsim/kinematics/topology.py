@@ -61,10 +61,15 @@ class Body:
         self.velocity = velocity
         self.acceleration = acceleration
         # Pg. 33
+        cx = linalg.R3_cross_product_matrix(self.center_of_mass)
         self.mass_matrix = np.matrix(np.block([
-            [self.inertia_matrix, self.mass*linalg.R3_cross_product_matrix(self.center_of_mass)],
-            [self.mass*linalg.R3_cross_product_matrix(self.center_of_mass).T, self.mass*np.eye(3,3)]
+            [self.inertia_matrix+self.mass*cx@cx.T, self.mass*cx],
+            [self.mass*cx.T, self.mass*np.eye(3,3)]
         ]))
+        # self.mass_matrix = np.matrix(np.block([
+        #     [self.inertia_matrix, np.zeros(shape=(3,3))],
+        #     [np.zeros(shape=(3,3)), self.mass*np.eye(3,3)]
+        # ]))
         self.frames = {
             "Identity": Frame(),
             "Center of Mass": Frame(translation=center_of_mass)
@@ -198,7 +203,7 @@ class Topology:
             to_body_name:str,
             to_frame_name:str
     ):
-        return np.linalg.inv(self._get_transform_from_root(from_body_name, from_frame_name)) * self._get_transform_from_root(to_body_name, to_frame_name)
+        return np.linalg.inv(self._get_transform_from_root(from_body_name, from_frame_name)) @ self._get_transform_from_root(to_body_name, to_frame_name)
     
     def get_X(
         self,
@@ -208,7 +213,7 @@ class Topology:
         to_frame_name:str
     ):
         T = self.get_transform(from_body_name, from_frame_name, to_body_name, to_frame_name)
-        E = T[:3,:3]
+        E = T[:3,:3].T
         r = T[:3,3]
         r_cross = linalg.R3_cross_product_matrix(r)
         return np.block([
@@ -223,14 +228,13 @@ class Topology:
         to_frame_name:str
     ):
         T = self.get_transform(from_body_name, from_frame_name, to_body_name, to_frame_name)
-        E = T[:3,:3]
+        E = T[:3,:3].T
         r = T[:3,3]
         r_cross = linalg.R3_cross_product_matrix(r)
         return np.block([
             [E, -E@r_cross],
             [np.zeros((3,3)), E]
         ])
-
 
     def get_mass(self):
         if self.mass is not None: return self.mass
@@ -295,13 +299,13 @@ class Topology:
 
     def get_mass_matrix(self):
         number_of_degrees_of_freedom = sum([j.get_number_degrees_of_freedom() for j in self.joints.values()])
-        H = np.matrix(np.zeros(shape=(number_of_degrees_of_freedom, number_of_degrees_of_freedom)))
-        dic = {}
+        mass_matrix = {}
         body_names = self.get_ordered_body_list()
         I_Cs = {}
         body_name_to_number = {"World": 0}
+
         for body_number, body_name in list(enumerate(body_names))[1:]:
-            I_Cs[body_name] = self.bodies[body_name].mass_matrix
+            I_Cs[body_name] = self.bodies[body_name].mass_matrix.copy()
             body_name_to_number[body_name] = body_number
 
         for i, body_name_i in list(enumerate(body_names))[-1:0:-1]:
@@ -313,23 +317,18 @@ class Topology:
             joint_i = self.joints[body_name_i]
             n_dof_i = joint_i.get_number_degrees_of_freedom()
             S_i = joint_i.get_motion_subspace()
-
             F = I_Cs[body_name_i] @ S_i
-            dic[(body_name_i, body_name_i)] = S_i.T @ F
-            j = i
-            body_name_j = body_names[j]
-            parent_body_name_j, _ = self.tree[body_names[j]]
+            mass_matrix[(body_name_i, body_name_i)] = S_i.T @ F
+            body_name_j = body_name_i
+            parent_body_name_j, _ = self.tree[body_name_j]
             while parent_body_name_j != "World":
                 F = self.get_Xstar(body_name_j, "Identity", parent_body_name_j, "Identity") @ F
-                j = body_name_to_number[parent_body_name_j]
-                body_name_j = body_names[j]
-                parent_body_name_j, _ = self.tree[body_names[j]]
+                body_name_j = parent_body_name_j
+                parent_body_name_j, _ = self.tree[body_name_j]
                 n_dof_j = self.joints[body_name_j].get_number_degrees_of_freedom()
-                H[i:i+n_dof_i,j:j+n_dof_j] = F.T @ self.joints[body_name_j].get_motion_subspace()
-                H[j:j+n_dof_j,i:i+n_dof_i] = H[i:i+n_dof_i,j:j+n_dof_j].T
-                dic[(body_name_i, body_name_j)] = F.T @ self.joints[body_name_j].get_motion_subspace()
-                dic[(body_name_j, body_name_i)] = dic[(body_name_i, body_name_j)].T
-        return self.matrixify(dic)
+                mass_matrix[(body_name_i, body_name_j)] = F.T @ self.joints[body_name_j].get_motion_subspace()
+                mass_matrix[(body_name_j, body_name_i)] = mass_matrix[(body_name_i, body_name_j)].T
+        return self.matrixify(mass_matrix)
 
     def get_ordered_body_list(self):
         if self.body_list is None:
@@ -355,7 +354,7 @@ class Topology:
         for body_name in body_names[1:]:
             joint = self.joints[body_name]
             parent_body_name, parent_frame_name = self.tree[body_name]
-            X_J = joint.get_X()
+            X_J = self.get_X(parent_body_name, parent_frame_name, body_name, "Identity")
             X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
             v_J = joint.get_velocity()
             i__X__lambda_i = X_J @ X_T
@@ -383,7 +382,7 @@ class Topology:
             else:
                 joint_acceleration = np.matrix(np.zeros(shape=(joint.get_number_degrees_of_freedom(),1)))
             parent_body_name, parent_frame_name = self.tree[body_name]
-            X_J = joint.get_X()
+            X_J = self.get_X(parent_body_name, parent_frame_name, body_name, "Identity")
             X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
             S_i = joint.get_motion_subspace()
             v_J = joint.get_velocity()
@@ -461,59 +460,26 @@ class Topology:
             for body_name in self.get_ordered_body_list()
         }
 
-
 if __name__ == "__main__":
 
-    body = Body(
+    pendulum_body = Body(
         mass=1,
-        center_of_mass=np.matrix([0,0.0,0.0]).T,
+        center_of_mass=np.matrix([1, 0, 0]).T,
         inertia_matrix=np.matrix([
-            [0, 0, 0],
-            [0, 0, 0],
-            [0, 0, 0]
+            # Point mass
+            [0,0,0],
+            [0,0,0],
+            [0,0,0]
         ])
     )
-    base_mounting_point = Frame(
-        translation=np.matrix([2.0,0.0,0.0]).T, 
-        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
+    end = Frame(
+        translation=np.matrix([1.0,0.0,0.0]).T, 
     )
-    short_end = Frame(
-        translation=np.matrix([0.25,0.1,0.0]).T, 
-        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
-    )
-    long_end = Frame(
-        translation=np.matrix([1.0,0.1,0.0]).T, 
-        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
-    )
-    long_end_for_yaw = Frame(
-        translation=np.matrix([1.0,0.0,0.1]).T, 
-        rotation=Frame.get_rotation_matrix(0.0, np.matrix([0.0,0.0,0.0]).T)
-    )
-    base = body.copy()
-    roll_body = body.copy()
-    pitch_body_1 = body.copy()
-    pitch_body_2 = body.copy()
-    yaw_body = body.copy()
-    
-    base.add_frame(base_mounting_point, "Base to Roll Body")
-    roll_body.add_frame(short_end, "Roll Body to Pitch Body 1")
-    pitch_body_1.add_frame(long_end, "Pitch Body 1 to Pitch Body 2")
-    pitch_body_2.add_frame(long_end_for_yaw, "Pitch Body 2 to Yaw Body")
-    yaw_body.add_frame(short_end, "End Effector")
+    pendulum_body.add_frame(end, "Arm End")
+    pendulum = Topology()
+    pendulum.add_connection("World", "Identity", pendulum_body.copy(), "Arm 0", RevoluteJoint(1))
+    for i in range(1, 10):
+        pendulum.add_connection(f"Arm {i-1}", "Arm End", pendulum_body.copy(), f"Arm {i}", RevoluteJoint(1))
 
-
-    robot = Topology()
-    robot.add_connection("World", "Identity", base, "Base Body")
-    robot.add_connection(
-        "Base Body", "Base to Roll Body", roll_body, "Roll Body",
-        joint=RevoluteJoint(0))
-    robot.add_connection(
-        "Roll Body", "Roll Body to Pitch Body 1", pitch_body_1, "Pitch Body 1",
-        joint=RevoluteJoint(0))
-    robot.add_connection(
-        "Pitch Body 1", "Roll Body to Pitch Body 1", pitch_body_2, "Pitch Body 2",
-        joint=RevoluteJoint(0))
-    robot.add_connection(
-        "Pitch Body 2", "Pitch Body 2 to Yaw Body", yaw_body, "Yaw Body",
-        joint=RevoluteJoint(0))
-    
+    for i in range(9,1,-1):
+        print(pendulum.get_Xstar(f"Arm {i}", "Identity", f"Arm {i-1}", "Identity"))

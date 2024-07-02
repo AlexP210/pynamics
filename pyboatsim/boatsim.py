@@ -37,7 +37,6 @@ class Sim:
 
         body_names = self.topology.get_ordered_body_list()
 
-        self.topology.update_body_velocities()
         body_accelerations = self.topology.calculate_body_accelerations(q_dd)
        
         S = {}
@@ -49,52 +48,48 @@ class Sim:
             S_i = joint.get_motion_subspace()
             S[body_name] = S_i
             i_X_0 = self.topology.get_X("World", "Identity", body_name, "Identity")
-            i_X_0_star = linalg.X_star(i_X_0)
+            i_X_0_star = self.topology.get_Xstar("World", "Identity", body_name, "Identity") #linalg.X_star(i_X_0)
 
             f1 = self.topology.bodies[body_name].mass_matrix @ body_accelerations[body_name]
             f2 = linalg.cross_star(self.topology.bodies[body_name].get_velocity()) @ self.topology.bodies[body_name].mass_matrix @ self.topology.bodies[body_name].get_velocity()
-            f3 = 0
+            f3 = np.matrix(np.zeros(shape=(6,1)))
             for dynamics_module in self.body_dynamics:
                 force = i_X_0_star @ dynamics_module(self.topology, body_name)
                 f3 += force
-            # for dynamics_module in self.joint_dynamics:
-            #     force += S[body_name] @ dynamics_module(self.topology, body_name)
-            #     f3 += force
-
             total_joint_forces[body_name] = f1+f2-f3
-
         for body_name in body_names[-1:0:-1]:
             motion_subspace_forces[body_name] = S[body_name].T @ total_joint_forces[body_name]
-            parent_name, _ = self.topology.tree[body_name]
-            if parent_name != "World":
-                total_joint_forces[parent_name] += self.topology.get_Xstar(body_name,"Identity",parent_body_name,"Identity") @ total_joint_forces[body_name]
-            
+            parent_body_name, _ = self.topology.tree[body_name]
+            if parent_body_name != "World":
+                lambda_i__Xstar__i = self.topology.get_Xstar(body_name,"Identity",parent_body_name,"Identity")
+                total_joint_forces[parent_body_name] += lambda_i__Xstar__i @ total_joint_forces[body_name]
         return motion_subspace_forces
 
     def get_nonlinear_forces(self):
         # Get the ordered list of bodies to iterate over
         body_names = self.topology.get_ordered_body_list()
         # Initialize the states to track velocity & acceleration
-        return self.inverse_dynamics(
+        tau = self.inverse_dynamics(
             q_dd={
                 body_name: np.matrix(np.zeros((self.topology.joints[body_name].get_number_degrees_of_freedom())))
                 for body_name in body_names
             }
         )
+        return tau
     
     def forward_dynamics(self, joint_space_forces):
-
         C = self.topology.vectorify(self.get_nonlinear_forces())
         H = self.topology.get_mass_matrix()
-
         if type(joint_space_forces) == type(np.matrix(0)):
             tau = joint_space_forces
         elif type(joint_space_forces) == type(dict()):
             tau = self.topology.vectorify(joint_space_forces)
-
         q_dd = np.linalg.inv(H) @ (tau - C)
-
-        return self.topology.dictionarify(q_dd)        
+        body_accelerations = self.topology.calculate_body_accelerations(q_dd)
+        joint_space_accelerations = self.topology.dictionarify(q_dd)
+        c = self.topology.dictionarify(C)
+        t = self.topology.dictionarify(tau)
+        return joint_space_accelerations       
 
     def step(self, dt):
         """
@@ -108,41 +103,51 @@ class Sim:
         for body_name in body_names[1:]:
             for dynamics_module in self.joint_dynamics:
                 joint_space_forces[body_name] = dynamics_module(self.topology, body_name)
-        
         joint_space_accelerations = self.forward_dynamics(joint_space_forces)
-
         for body_name in body_names[1:]:
             # Update the positions
             # x_1 = x_0 + x'_0 * dt + 0.5 * x''_1 * dt^2
             # x'_1 = x'_0 + x''_0 * dt
             # x_i+1 = 2 * x_i - x_i-1 + x''_i * dt^2
             # x'_i+1 = (x_i+1 - x_i-1) / (2*dt)
-            if len(self.joint_space_position_history) == 1:
-                # Update joint position
-                self.topology.joints[body_name].set_configuration(
-                    self.topology.joints[body_name].get_configuration()
-                    + self.topology.joints[body_name].get_configuration_d() * dt
-                    + 0.5 * joint_space_accelerations[body_name] * dt**2
-                )
-                # Update joint velocity
-                self.topology.joints[body_name].set_configuration_d(
-                    self.topology.joints[body_name].get_configuration_d()
-                    + joint_space_accelerations[body_name] * dt
-                )
-            else:
-                # Update joint position
-                self.topology.joints[body_name].set_configuration(
-                    2*self.topology.joints[body_name].get_configuration()
-                    - self.joint_space_position_history[-1][body_name]
-                    + joint_space_accelerations[body_name] * dt**2
-                )
-                # Update joint velocity
-                self.topology.joints[body_name].set_configuration_d(
-                    (self.topology.joints[body_name].get_configuration()
-                    - self.joint_space_position_history[-1][body_name]) / (2*dt)
-                )
+            # print(body_name)
+            # print(joint_space_accelerations)
+            self.topology.joints[body_name].set_configuration_d(
+                self.topology.joints[body_name].get_configuration_d()
+                + joint_space_accelerations[body_name] * dt
+            )
+            self.topology.joints[body_name].set_configuration(
+                self.topology.joints[body_name].get_configuration()
+                + self.topology.joints[body_name].get_configuration_d() * dt
+            )
+
+            # if len(self.joint_space_position_history) == 1:
+            #     # Update joint position
+            #     self.topology.joints[body_name].set_configuration(
+            #         self.topology.joints[body_name].get_configuration()
+            #         + self.topology.joints[body_name].get_configuration_d() * dt
+            #         + 0.5 * joint_space_accelerations[body_name] * dt**2
+            #     )
+            #     # Update joint velocity
+            #     self.topology.joints[body_name].set_configuration_d(
+            #         self.topology.joints[body_name].get_configuration_d()
+            #         + joint_space_accelerations[body_name] * dt
+            #     )
+            # else:
+            #     # Update joint position
+            #     self.topology.joints[body_name].set_configuration(
+            #         2*self.topology.joints[body_name].get_configuration()
+            #         - self.joint_space_position_history[-1][body_name]
+            #         + joint_space_accelerations[body_name] * dt**2
+            #     )
+            #     # Update joint velocity
+            #     self.topology.joints[body_name].set_configuration_d(
+            #         (self.topology.joints[body_name].get_configuration()
+            #         - self.joint_space_position_history[-1][body_name]) / (2*dt)
+            #     )
         self.joint_space_position_history.append(self.topology.get_joint_space_positions())
         self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
+        self.topology.update_body_velocities()
 
         return
 
@@ -164,21 +169,30 @@ class Sim:
         return pd.DataFrame.from_dict(self.history)
 
 if __name__ == "__main__":
-    from pyboatsim.example.example_topology import double_pendulum
+    from pyboatsim.example.example_topology import get_pendulum
+    np.seterr(all='raise')
 
-    # robot.joints["Pitch Body 1"].set_configuration(np.matrix(np.pi/4))
-    # robot.joints["Pitch Body 2"].set_configuration(np.matrix(-np.pi/4))
 
-    sim = Sim(topology=double_pendulum, body_dynamics=[Gravity("gravity", -9.81, 2)])
+    pendulum, pendulum_vis = get_pendulum(1)
+    sim = Sim(
+        topology=pendulum, 
+        body_dynamics=[
+            Gravity("gravity", -1, 2)
+        ])
 
-    # for body_name, force in sim.inverse_dynamics(
-    #     {"Arm 1": np.matrix(np.pi/4)/100}
-    # ).items():
-    #     if type(force) != type([]): print(body_name, force.T)
+    # sim.step(0.01)
 
-    sim.simulate(1, 0.01, verbose=True)
+    sim.simulate(30, 0.01, verbose=True)
+    pendulum_vis.add_sim_data(sim)
+    pendulum_vis.animate(0.01, save_path="Test_Multibody_Test.mp4")
 
-    
+    X = []
+    for joint_space_positions in sim.joint_space_position_history:
+        X.append(joint_space_positions["Arm 0"][0,0])
+
+    # plt.plot(X)
+    # plt.show()
+
 
 
 

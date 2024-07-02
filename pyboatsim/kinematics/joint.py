@@ -48,22 +48,22 @@ class Joint(abc.ABC):
             T[i,3] = R[i,0]
         T[3,3] = 1
         return T
-    def get_X(self):
-        E = self.get_rotation_matrix()
-        r = self.get_translation_vector()
-        r_cross = linalg.R3_cross_product_matrix(r)
-        return np.block([
-            [E, np.zeros((3,3))],
-            [-E@r_cross, E]
-        ])
-    def get_Xstar(self):
-        E = self.get_rotation_matrix()
-        r = self.get_translation_vector()
-        r_cross = linalg.cross_product_matrix(r)
-        return np.block(
-            [E, -E@r_cross],
-            [np.zeros((3,3)), E]
-        )
+    # def get_X(self):
+    #     E = self.get_rotation_matrix()
+    #     r = self.get_translation_vector()
+    #     r_cross = linalg.R3_cross_product_matrix(r)
+    #     return np.block([
+    #         [E, np.zeros((3,3))],
+    #         [-E@r_cross, E]
+    #     ])
+    # def get_Xstar(self):
+    #     E = self.get_rotation_matrix()
+    #     r = self.get_translation_vector()
+    #     r_cross = linalg.cross_product_matrix(r)
+    #     return np.block(
+    #         [E, -E@r_cross],
+    #         [np.zeros((3,3)), E]
+    #     )
 
 class RevoluteJoint(Joint):
     def __init__(self, axis:int):
@@ -98,6 +98,33 @@ class RevoluteJoint(Joint):
             [y*x*C+z*s, y*y*C+c, y*z*C-x*s],
             [z*x*C-y*s, z*y*C+x*s, z*z*C+c]
         ])
+    
+        # c = np.cos(self.q)[0,0]
+        # s = np.sin(self.q)[0,0]
+
+        # rotation_matrix = np.matrix(np.eye(3))
+        # if self.axis == 0:
+        #     rotation_matrix = np.matrix([
+        #         [1, 0, 0],
+        #         [0, c, s],
+        #         [0, -s, c]
+        #     ])
+        # elif self.axis == 1:
+        #     rotation_matrix = np.matrix([
+        #         [c, 0, -s],
+        #         [0, 1, 0],
+        #         [s, 0, c]
+        #     ])
+        # elif self.axis == 2:
+        #     rotation_matrix = np.matrix([
+        #         [c, s, 0],
+        #         [-s, c, 0],
+        #         [0, 0, 1]
+        #     ])
+        # return rotation_matrix.T
+
+
+
     def get_c(self):
         return np.matrix(np.zeros(6)).T
 
@@ -153,8 +180,10 @@ class FixedJoint(Joint):
 
 if __name__ == "__main__":
     joint = RevoluteJoint(axis=0)
-    joint.set_configuration(np.matrix([[1]]))
-    joint.set_configuration_d(np.matrix([[1]]))
+    joint.set_configuration(np.matrix([[np.pi/2]]))
+
+    print("Rotation Matrix: ")
+    print(joint.get_rotation_matrix())
 
     joint2 = FixedJoint()
     print(joint2.get_number_degrees_of_freedom())

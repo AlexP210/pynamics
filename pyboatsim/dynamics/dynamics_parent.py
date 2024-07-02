@@ -3,6 +3,7 @@ import abc
 import numpy as np
 
 from pyboatsim.kinematics.topology import Topology
+from pyboatsim.math.linalg import R3_cross_product_matrix
 
 class DynamicsParent(abc.ABC):
     def __init__(self, name):
@@ -24,4 +25,9 @@ class DynamicsParent(abc.ABC):
             )
 
     def __call__(self, topology:Topology, body_name:str) -> float:
-        return self.compute_dynamics(topology, body_name)
+        force, point_of_application = self.compute_dynamics(topology, body_name)
+        
+        wrench = np.matrix(np.zeros(shape=(6,1)))
+        wrench[:3,0] = R3_cross_product_matrix(point_of_application) @ force
+        wrench[3:,0] = force
+        return wrench
