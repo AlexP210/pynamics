@@ -28,14 +28,10 @@ class Joint(abc.ABC):
         return self.q
     def get_configuration_d(self):
         return self.q_d
-    def get_configuration_dd(self):
-        return self.q_dd
     def set_configuration(self, configuration):
         self.q = configuration
     def set_configuration_d(self, configuration_d):
         self.q_d = configuration_d
-    def set_configuration_dd(self, configuration_dd):
-        self.q_dd = configuration_dd
     def get_number_degrees_of_freedom(self):
         return self.q.size
     def get_T(self):
@@ -48,22 +44,6 @@ class Joint(abc.ABC):
             T[i,3] = R[i,0]
         T[3,3] = 1
         return T
-    # def get_X(self):
-    #     E = self.get_rotation_matrix()
-    #     r = self.get_translation_vector()
-    #     r_cross = linalg.R3_cross_product_matrix(r)
-    #     return np.block([
-    #         [E, np.zeros((3,3))],
-    #         [-E@r_cross, E]
-    #     ])
-    # def get_Xstar(self):
-    #     E = self.get_rotation_matrix()
-    #     r = self.get_translation_vector()
-    #     r_cross = linalg.cross_product_matrix(r)
-    #     return np.block(
-    #         [E, -E@r_cross],
-    #         [np.zeros((3,3)), E]
-    #     )
 
 class RevoluteJoint(Joint):
     def __init__(self, axis:int):
@@ -79,7 +59,6 @@ class RevoluteJoint(Joint):
             temp += 1
         self.q = np.matrix(np.zeros(1)).T
         self.q_d = np.matrix(np.zeros(self.q.shape)).T
-        self.q_dd = np.matrix(np.zeros(self.q.shape)).T
         
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3,1)))
@@ -99,32 +78,6 @@ class RevoluteJoint(Joint):
             [z*x*C-y*s, z*y*C+x*s, z*z*C+c]
         ])
     
-        # c = np.cos(self.q)[0,0]
-        # s = np.sin(self.q)[0,0]
-
-        # rotation_matrix = np.matrix(np.eye(3))
-        # if self.axis == 0:
-        #     rotation_matrix = np.matrix([
-        #         [1, 0, 0],
-        #         [0, c, s],
-        #         [0, -s, c]
-        #     ])
-        # elif self.axis == 1:
-        #     rotation_matrix = np.matrix([
-        #         [c, 0, -s],
-        #         [0, 1, 0],
-        #         [s, 0, c]
-        #     ])
-        # elif self.axis == 2:
-        #     rotation_matrix = np.matrix([
-        #         [c, s, 0],
-        #         [-s, c, 0],
-        #         [0, 0, 1]
-        #     ])
-        # return rotation_matrix.T
-
-
-
     def get_c(self):
         return np.matrix(np.zeros(6)).T
 
@@ -134,7 +87,7 @@ class FreeJoint(Joint):
         self.constraint_force_subspace = 0
         self.q = np.matrix(np.zeros(1)).T
         self.q_d = np.matrix(np.zeros(self.q.shape)).T
-        self.q_dd = np.matrix(np.zeros(self.q.shape)).T
+
     def get_translation_vector(self):
         r = self.q[:3,0]
         return r
@@ -163,7 +116,6 @@ class FixedJoint(Joint):
         self.constraint_force_subspace = np.matrix(np.eye(6,6)).T
         self.q = np.matrix([[]])
         self.q_d = np.matrix([[]])
-        self.q_dd = np.matrix([[]])
         
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3,1)))
@@ -177,13 +129,3 @@ class FixedJoint(Joint):
         return np.matrix(np.zeros(shape=(6,1)))
     def get_acceleration(self, q_dd):
         return np.matrix(np.zeros(shape=(6,1)))
-
-if __name__ == "__main__":
-    joint = RevoluteJoint(axis=0)
-    joint.set_configuration(np.matrix([[np.pi/2]]))
-
-    print("Rotation Matrix: ")
-    print(joint.get_rotation_matrix())
-
-    joint2 = FixedJoint()
-    print(joint2.get_number_degrees_of_freedom())

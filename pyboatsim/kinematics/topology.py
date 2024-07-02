@@ -5,18 +5,6 @@ from pyboatsim.constants import EPSILON
 from pyboatsim.kinematics.joint import Joint, FixedJoint, RevoluteJoint
 import pyboatsim.math.linalg as linalg
 
-class Articulation:
-    TRANSLATE_X = np.array([1,0,0,0,0,0])
-    TRANSLATE_Y = np.array([0,1,0,0,0,0])
-    TRANSLATE_Z = np.array([0,0,1,0,0,0])
-    ROTATE_X = np.array([0,0,0,1,0,0])
-    ROTATE_Y = np.array([0,0,0,0,1,0])
-    ROTATE_Z = np.array([0,0,0,0,0,1])
-    FREE = np.array([1,1,1,1,1,1])
-
-class ArticulationError(Exception):
-    pass
-
 class Frame:
     def __init__(
         self,
@@ -66,10 +54,6 @@ class Body:
             [self.inertia_matrix+self.mass*cx@cx.T, self.mass*cx],
             [self.mass*cx.T, self.mass*np.eye(3,3)]
         ]))
-        # self.mass_matrix = np.matrix(np.block([
-        #     [self.inertia_matrix, np.zeros(shape=(3,3))],
-        #     [np.zeros(shape=(3,3)), self.mass*np.eye(3,3)]
-        # ]))
         self.frames = {
             "Identity": Frame(),
             "Center of Mass": Frame(translation=center_of_mass)
@@ -298,7 +282,6 @@ class Topology:
         return self.inertia_tensor
 
     def get_mass_matrix(self):
-        number_of_degrees_of_freedom = sum([j.get_number_degrees_of_freedom() for j in self.joints.values()])
         mass_matrix = {}
         body_names = self.get_ordered_body_list()
         I_Cs = {}
@@ -315,7 +298,6 @@ class Topology:
                 i_x_lambda_i = self.get_X(parent_body_name_i, "Identity", body_name_i, "Identity")
                 I_Cs[parent_body_name_i] += lambda_i_xstar_i @ I_Cs[body_name_i] @ i_x_lambda_i
             joint_i = self.joints[body_name_i]
-            n_dof_i = joint_i.get_number_degrees_of_freedom()
             S_i = joint_i.get_motion_subspace()
             F = I_Cs[body_name_i] @ S_i
             mass_matrix[(body_name_i, body_name_i)] = S_i.T @ F
@@ -346,9 +328,6 @@ class Topology:
         
     def calculate_body_velocities(self):
         body_velocities = {}
-        # TODO: calculate_body_velocities should be able to calculate velocities as-is using what's stored in the topology,
-        # OR using a substituted value from the arguments list
-        # Does it make sense to not have the topology store any motion info at all?
         body_names = self.get_ordered_body_list()
         body_velocities[body_names[0]] = np.matrix(np.zeros(6)).T
         for body_name in body_names[1:]:
@@ -459,27 +438,3 @@ class Topology:
             body_name: self.joints[body_name].get_configuration_d()
             for body_name in self.get_ordered_body_list()
         }
-
-if __name__ == "__main__":
-
-    pendulum_body = Body(
-        mass=1,
-        center_of_mass=np.matrix([1, 0, 0]).T,
-        inertia_matrix=np.matrix([
-            # Point mass
-            [0,0,0],
-            [0,0,0],
-            [0,0,0]
-        ])
-    )
-    end = Frame(
-        translation=np.matrix([1.0,0.0,0.0]).T, 
-    )
-    pendulum_body.add_frame(end, "Arm End")
-    pendulum = Topology()
-    pendulum.add_connection("World", "Identity", pendulum_body.copy(), "Arm 0", RevoluteJoint(1))
-    for i in range(1, 10):
-        pendulum.add_connection(f"Arm {i-1}", "Arm End", pendulum_body.copy(), f"Arm {i}", RevoluteJoint(1))
-
-    for i in range(9,1,-1):
-        print(pendulum.get_Xstar(f"Arm {i}", "Identity", f"Arm {i-1}", "Identity"))

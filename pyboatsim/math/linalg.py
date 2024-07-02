@@ -19,9 +19,3 @@ def cross(v:np.matrix):
 
 def cross_star(v:np.matrix):
     return -cross(v).T
-
-def X_star(X:np.matrix):
-    return np.matrix(np.block([
-                [np.eye(3,3), X[3:,:3]],
-                [X[:3,3:], np.eye(3,3)]
-            ]))
