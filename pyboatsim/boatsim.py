@@ -9,95 +9,90 @@ import tqdm as tqdm
 
 from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
-from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, MeshGravity, MeshBodyDrag
+from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, Gravity, MeshBodyDrag
 from pyboatsim.math import linalg
+from pyboatsim.kinematics.topology import Topology, Frame, Body
 
-class BoAtSim:
+class Sim:
     def __init__(
             self,
-            state: State,
-            dynamics: typing.List[DynamicsParent]
+            topology: Topology,
+            body_dynamics: typing.List[DynamicsParent] = [],
+            joint_dynamics: typing.List[DynamicsParent] = [],
         ) -> None:
         """
         Initializer
         """
-        self.state = state
-        self.history = []
-        self.dynamics = dynamics
-        self.dynamics_names = [
-            dynamics_module.name 
-            for dynamics_module in self.dynamics
+        self.body_dynamics:typing.List[DynamicsParent] = body_dynamics
+        self.joint_dynamics:typing.List[DynamicsParent] = joint_dynamics
+        self.topology:Topology = topology
+        self.joint_space_position_history = [
+            self.topology.get_joint_space_positions(),
         ]
-        self.required_labels = [
-            f"r_{axis}__boat" for axis in AXES
-        ] + [
-            f"v_{axis}__boat" for axis in AXES
-        ] + [
-            f"a_{axis}__boat" for axis in AXES
-        ] + [
-            f"theta_{axis}__boat" for axis in AXES
-        ] + [
-            f"omega_{axis}__boat" for axis in AXES
-        ] + [
-            f"alpha_{axis}__boat" for axis in AXES
-        ] + [
-            f"m__boat"
-        ] + [
-            f"I_{axis}{axis}__boat" for axis in AXES
-        ] + [
-            f"c_{axis}__boat" for axis in AXES
-        ] + [
-            "t"
+        self.joint_space_velocity_history = [
+            self.topology.get_joint_space_velocities(),
+        ]
+        self.time_history = [
+            0
         ]
 
-    def _compute_accelerations(self):
-        # Force and Moment
-        F = np.matrix([self.state[f"f_{axis}__total"] for axis in AXES]).T
-        T = np.matrix([self.state[f"tau_{axis}__total"] for axis in AXES]).T
-        FT = np.block([
-            [F,],
-            [T,],
-        ])
-        # Angular velocity
-        w = np.matrix([self.state[f"omega_{axis}__boat"] for axis in AXES]).T
-        w_x = linalg.cross_product_matrix(w)
-        # Mass properties
-        I_cm = np.array([
-            [self.state["I_xx__boat"], self.state["I_xy__boat"],  self.state["I_xz__boat"]],
-            [self.state["I_yx__boat"], self.state["I_yy__boat"],  self.state["I_yz__boat"]],
-            [self.state["I_zx__boat"], self.state["I_zy__boat"],  self.state["I_zz__boat"]],
-        ])
-        m = self.state["m__boat"]
-        c = np.matrix([self.state[f"c_{axis}__boat"] for axis in AXES]).T
-        c_x = linalg.cross_product_matrix(c)
-        # Identity matrix
-        I3 = np.eye(3)
+    def inverse_dynamics(self, q_dd):
 
-        # Assemble the matrices from https://en.wikipedia.org/wiki/Newton%E2%80%93Euler_equations#Any_reference_frame
-        # A = np.block([
-        #     [m*I3, -m*c_x],
-        #     [m*c_x, I_cm - m*c_x@c_x]
-        # ])
-        A = np.block([
-            [m*I3, np.zeros((3,3))],
-            [np.zeros((3,3)), I_cm]
-        ])
-        # B = np.block([
-        #     [m*w_x@w_x@c,],
-        #     [w_x@(I_cm - m*c_x@c_x)@w]
-        # ])
-        B = np.block([
-            [np.zeros((3,1)),],
-            [w_x@I_cm@w,],
-        ])
+        body_names = self.topology.get_ordered_body_list()
 
-        accelerations = np.linalg.inv(A)*(FT - B)
-        
-        for idx, axis in enumerate(AXES):
-            self.state[f"a_{axis}__boat"] = accelerations[idx, 0]
-            self.state[f"alpha_{axis}__boat"] = accelerations[3+idx, 0]
+        body_accelerations = self.topology.calculate_body_accelerations(q_dd)
+       
+        S = {}
+        total_joint_forces = {}
+        motion_subspace_forces = {}
+        for body_name in body_names[1:]:
+            joint = self.topology.joints[body_name]
+            parent_body_name, parent_frame_name = self.topology.tree[body_name]
+            S_i = joint.get_motion_subspace()
+            S[body_name] = S_i
+            i_X_0 = self.topology.get_X("World", "Identity", body_name, "Identity")
+            i_X_0_star = self.topology.get_Xstar("World", "Identity", body_name, "Identity") #linalg.X_star(i_X_0)
 
-        return 
+            f1 = self.topology.bodies[body_name].mass_matrix @ body_accelerations[body_name]
+            f2 = linalg.cross_star(self.topology.bodies[body_name].get_velocity()) @ self.topology.bodies[body_name].mass_matrix @ self.topology.bodies[body_name].get_velocity()
+            f3 = np.matrix(np.zeros(shape=(6,1)))
+            for dynamics_module in self.body_dynamics:
+                force = i_X_0_star @ dynamics_module(self.topology, body_name)
+                f3 += force
+            total_joint_forces[body_name] = f1+f2-f3
+        for body_name in body_names[-1:0:-1]:
+            motion_subspace_forces[body_name] = S[body_name].T @ total_joint_forces[body_name]
+            parent_body_name, _ = self.topology.tree[body_name]
+            if parent_body_name != "World":
+                lambda_i__Xstar__i = self.topology.get_Xstar(body_name,"Identity",parent_body_name,"Identity")
+                total_joint_forces[parent_body_name] += lambda_i__Xstar__i @ total_joint_forces[body_name]
+        return motion_subspace_forces
+
+    def get_nonlinear_forces(self):
+        # Get the ordered list of bodies to iterate over
+        body_names = self.topology.get_ordered_body_list()
+        # Initialize the states to track velocity & acceleration
+        tau = self.inverse_dynamics(
+            q_dd={
+                body_name: np.matrix(np.zeros((self.topology.joints[body_name].get_number_degrees_of_freedom())))
+                for body_name in body_names
+            }
+        )
+        return tau
+    
+    def forward_dynamics(self, joint_space_forces):
+        C = self.topology.vectorify(self.get_nonlinear_forces())
+        H = self.topology.get_mass_matrix()
+        if type(joint_space_forces) == type(np.matrix(0)):
+            tau = joint_space_forces
+        elif type(joint_space_forces) == type(dict()):
+            tau = self.topology.vectorify(joint_space_forces)
+        q_dd = np.linalg.inv(H) @ (tau - C)
+        body_accelerations = self.topology.calculate_body_accelerations(q_dd)
+        joint_space_accelerations = self.topology.dictionarify(q_dd)
+        c = self.topology.dictionarify(C)
+        t = self.topology.dictionarify(tau)
+        return joint_space_accelerations       
 
     def step(self, dt):
         """
@@ -106,71 +101,64 @@ class BoAtSim:
         # Apply the dynamics on the state, adds forces, torques, and other
         # intermediate values calculated by dynamics modules based on the
         # current state.
-        for dynamics_module in self.dynamics:
-            self.state = dynamics_module(self.state, dt)
-        for axis in AXES:
-            # Calculate the total force & moment by adding all the "f_"  and
-            # "tau_" labels in the state dictionary
-            self.state.set(
-                partial_state_dictionary={
-                    f"f_{axis}__total": sum([
-                        self.state[f"f_{axis}__{name}"] for name in self.dynamics_names
-                    ]),
-                    f"tau_{axis}__total": sum([
-                        self.state[f"tau_{axis}__{name}"] for name in self.dynamics_names
-                    ])
-                }
+        joint_space_forces = {}
+        body_names = self.topology.get_ordered_body_list()
+        for body_name in body_names[1:]:
+            for dynamics_module in self.joint_dynamics:
+                joint_space_forces[body_name] = dynamics_module(self.topology, body_name)
+        joint_space_accelerations = self.forward_dynamics(joint_space_forces)
+        for body_name in body_names[1:]:
+            # Update the positions
+            # x_1 = x_0 + x'_0 * dt + 0.5 * x''_1 * dt^2
+            # x'_1 = x'_0 + x''_0 * dt
+            # x_i+1 = 2 * x_i - x_i-1 + x''_i * dt^2
+            # x'_i+1 = (x_i+1 - x_i-1) / (2*dt)
+            # print(body_name)
+            # print(joint_space_accelerations)
+            self.topology.joints[body_name].set_configuration_d(
+                self.topology.joints[body_name].get_configuration_d()
+                + joint_space_accelerations[body_name] * dt
+            )
+            self.topology.joints[body_name].set_configuration(
+                self.topology.joints[body_name].get_configuration()
+                + self.topology.joints[body_name].get_configuration_d() * dt
             )
 
-        # Solve Newton-Euler equations to calculate the linear and angular accelerations
-        # in the state dictionary
-        self._compute_accelerations()
-        
-        # Add the state to the history
-        self.history.append(self.state.get())
-        # Create a new state to store the next update
-        next_state = self.state.copy()
+            # if len(self.joint_space_position_history) == 1:
+            #     # Update joint position
+            #     self.topology.joints[body_name].set_configuration(
+            #         self.topology.joints[body_name].get_configuration()
+            #         + self.topology.joints[body_name].get_configuration_d() * dt
+            #         + 0.5 * joint_space_accelerations[body_name] * dt**2
+            #     )
+            #     # Update joint velocity
+            #     self.topology.joints[body_name].set_configuration_d(
+            #         self.topology.joints[body_name].get_configuration_d()
+            #         + joint_space_accelerations[body_name] * dt
+            #     )
+            # else:
+            #     # Update joint position
+            #     self.topology.joints[body_name].set_configuration(
+            #         2*self.topology.joints[body_name].get_configuration()
+            #         - self.joint_space_position_history[-1][body_name]
+            #         + joint_space_accelerations[body_name] * dt**2
+            #     )
+            #     # Update joint velocity
+            #     self.topology.joints[body_name].set_configuration_d(
+            #         (self.topology.joints[body_name].get_configuration()
+            #         - self.joint_space_position_history[-1][body_name]) / (2*dt)
+            #     )
+        self.joint_space_position_history.append(self.topology.get_joint_space_positions())
+        self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
+        self.time_history.append(self.time_history[-1]+dt)
+        self.topology.update_body_velocities()
 
-        # For each axis, update the position and velocities to be used in the
-        # next state
-        if len(self.history) < 1: raise ValueError("Why is self.history empty? For shame.")
-        for axis in AXES:
-            if len(self.history) == 1:
-                # Update the positions
-                next_state[f"r_{axis}__boat"] += self.state[f"v_{axis}__boat"]*dt + 0.5*next_state[f"a_{axis}__boat"]*dt**2
-                next_state[f"theta_{axis}__boat"] += self.state[f"omega_{axis}__boat"]*dt + 0.5*next_state[f"alpha_{axis}__boat"]*dt**2
-                next_state[f"v_{axis}__boat"] += self.state[f"a_{axis}__boat"] * dt
-                next_state[f"omega_{axis}__boat"] += self.state[f"alpha_{axis}__boat"] * dt
-            else:
-                # Update the positions
-                x_prev = self.history[-2]
-                lin = f"r_{axis}__boat"
-                ang = f"theta_{axis}__boat"
-                next_state[lin] = 2*self.state[lin] - x_prev[lin] + self.state[f"a_{axis}__boat"]*dt**2
-                next_state[ang] = 2*self.state[ang] - x_prev[ang] + self.state[f"alpha_{axis}__boat"]*dt**2
-                next_state[f"v_{axis}__boat"] = (next_state[lin] - x_prev[lin]) / (2*dt)
-                next_state[f"omega_{axis}__boat"] = (next_state[ang] - x_prev[ang]) / (2*dt)
-
-
-        # Set the next state
-        self.state = next_state
-        self.state["t"] += dt
+        return
 
     def simulate(self, delta_t:float, dt:float, verbose=False):
         """
         Runs the simulation for delta_t more seconds.
         """
-        # Ensure that the state contains the basic required labels to run
-        # a simulation
-        missing_labels = [
-            label 
-            for label in self.required_labels if not label in self.state._state_dictionary
-        ]
-        if len(missing_labels) != 0:
-            raise ValueError(
-                f"Cannot compute dynamics, missing the following"
-                f" labels: {', '.join(missing_labels)}"
-            )
         if verbose:
             for _ in tqdm.tqdm(range(int(delta_t//dt+1))):
                 self.step(dt=dt)
@@ -185,94 +173,30 @@ class BoAtSim:
         return pd.DataFrame.from_dict(self.history)
 
 if __name__ == "__main__":
+    from pyboatsim.example.example_topology import get_pendulum
+    np.seterr(all='raise')
 
-    # Assemble the sim
-    sim = BoAtSim(
-        state=State(
-            state_dictionary={
-            "t": 0,
-            "r_x__boat": 0, 
-            "r_y__boat": 0,
-            "r_z__boat": 2,
-            "r_z__water": 0,
-            "v_x__boat": 0,
-            "v_y__boat": 0, 
-            "v_z__boat": 0,
-            "a_x__boat": 0, 
-            "a_y__boat": 0, 
-            "a_z__boat": 0, 
-            "theta_x__boat": 0, 
-            "theta_y__boat": np.pi/4, 
-            "theta_z__boat": 0, 
-            "omega_x__boat": 0, 
-            "omega_y__boat": 0, 
-            "omega_z__boat": 0,
-            "alpha_x__boat": 0, 
-            "alpha_y__boat": 0, 
-            "alpha_z__boat": 0,
-            "m__boat": 1000,
-            "I_xx__boat": (1000/12)*(2**2 + 0.4**2),
-            "I_xy__boat": 0,
-            "I_xz__boat": 0,
-            "I_yx__boat": 0,
-            "I_yy__boat": (1000/12)*(2**2 + 0.4**2),
-            "I_yz__boat": 0,
-            "I_zx__boat": 0,
-            "I_zy__boat": 0,
-            "I_zz__boat": (1000/12)*(2**2 + 2**2),
-            "c_x__boat": 0,
-            "c_y__boat": 0,
-            "c_z__boat": 0,
-            "rho__water": 1000,
-            "v_x__water": 0,
-            "v_y__water": 0, 
-            "v_z__water": 0,
-            "gamma__waterwheel": 0,
-            "gammadot__waterwheel": 0.1,
-        }), 
-        dynamics=[
-            MeshBuoyancy(
-                name="buoyancy", 
-                buoyancy_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary.obj"
-            ),
-            MeshGravity(
-                name="gravity", 
-                gravity_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj"
-            ),
-            MeshBodyDrag(
-                name="bodydrag",
-                bodydrag_model_path="/home/alex/Projects/PyBoAtSim/models/cup/cup_boundary_poked.obj"
-            )
-        ]
-    )
 
-    # Run the sim
-    print("Running simulation")
-    sim.simulate(delta_t=30, dt=0.01, verbose=True)
-    data = pd.DataFrame.from_dict(sim.history)
+    N = 1
+    pendulum, pendulum_vis = get_pendulum(N)
+    pendulum.joints["Arm 0"].set_configuration(np.matrix([0.8*np.pi/2]))
+    sim = Sim(
+        topology=pendulum, 
+        body_dynamics=[
+            Gravity("gravity", -9.81, 2)
+        ])
+    # pendulum_vis.view()
+    # sim.step(0.01)
 
-    fig, ax = plt.subplots(nrows=2, ncols=3)
-    for row_idx, position_orientation in enumerate(["r", "theta"]):
-        for col_idx, axis in enumerate(AXES):
-            ax[row_idx, col_idx].plot(
-                data["t"], 
-                data[f"{position_orientation}_{axis}__boat"], 
-                label=f"{position_orientation}_{axis}__boat"
-            )
-            ax[row_idx, col_idx].set_xlabel("Time (s)")
-            if position_orientation == "r": ylabel = "Position (m)"
-            elif position_orientation == "theta": ylabel = "Angle (rad)"
-            ax[row_idx, col_idx].set_ylabel(ylabel)
-            ax[row_idx, col_idx].legend()
+    sim.simulate(10, 0.01, verbose=True)
+    # pendulum_vis.add_sim_data(sim)
+    # pendulum_vis.animate(0.01, save_path=f"Test_Multibody_{N}.mp4")
+
+    Y = []
+    X = []
+    for joint_space_positions in sim.joint_space_position_history:
+        X.append(joint_space_positions["Arm 0"][0,0])
+
+    plt.scatter(sim.time_history, X, c="r", marker="x", s=0.5)
+    plt.plot(sim.time_history, [-0.2*np.pi/2 * np.cos(np.sqrt(9.81) * t) + np.pi/2 for t in sim.time_history])
     plt.show()
-
-    from visualizer import Visualizer
-    import trimesh
-    vis_model = trimesh.load(
-            file_obj="/home/alex/Projects/PyBoAtSim/models/cup/cup.obj", 
-            file_type="obj", 
-            force="mesh"
-        )
-    vis = Visualizer(boatsim=sim, visualization_model=vis_model)
-    print("Saving animation")
-    vis.animate(save_path="Test.mp4", show_forces=True)

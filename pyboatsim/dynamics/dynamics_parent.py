@@ -1,7 +1,9 @@
 import typing
 import abc
+import numpy as np
 
-from pyboatsim.state import State
+from pyboatsim.kinematics.topology import Topology
+from pyboatsim.math.linalg import R3_cross_product_matrix
 
 class DynamicsParent(abc.ABC):
     def __init__(self, name):
@@ -13,37 +15,19 @@ class DynamicsParent(abc.ABC):
         self.name = name
 
     @abc.abstractmethod
-    def compute_dynamics(self, state:State, dt:float) -> State:
+    def compute_dynamics(self, topology:Topology, body_name:str) -> np.matrix:
         """
         Each instance of Dynamics needs to implement a calculation of the 
-        dynamics, adding a state
+        dynamics, to compute the 6-D force/moment vector given a topology and body_name
         """
         raise NotImplementedError(
             "Implement `compute_dynamics()` in your `Dynamics` subclass."
             )
-    
-    @abc.abstractmethod
-    def required_state_labels(self):
-        """
-        Each instance of Dynamics needs to implement a function stating what
-        labels need to exist in the state dictionary in order for it to work
-        """
-        raise NotImplementedError(
-            "Implement `required_state_labels()` in your `Dynamics` subclass."
-            )
 
-
-    def __call__(self, state:State, dt:float) -> float:
-        """
-        Handles checking if the passed `State` object contains all the required
-        labels, printing a helpful error message if not, and calculating 
-        dynamics afterwards.
-        """
-        missing_labels = [
-            label 
-            for label in self.required_state_labels() if not label in state.labels()
-        ]
-        if len(missing_labels) != 0: raise ValueError(
-            f"The following labels are missing from the sim state, dynamics"
-            f" cannot be calculated: {', '.join(missing_labels)}")
-        return self.compute_dynamics(state, dt)
+    def __call__(self, topology:Topology, body_name:str) -> float:
+        force, point_of_application = self.compute_dynamics(topology, body_name)
+        
+        wrench = np.matrix(np.zeros(shape=(6,1)))
+        wrench[:3,0] = R3_cross_product_matrix(point_of_application) @ force
+        wrench[3:,0] = force
+        return wrench

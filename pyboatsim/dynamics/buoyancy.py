@@ -6,16 +6,21 @@ import trimesh
 from pyboatsim.dynamics import DynamicsParent
 from pyboatsim.state import State
 from pyboatsim.constants import AXES, EPSILON
+from pyboatsim.kinematics.topology import Topology
 
 class MeshBuoyancy(DynamicsParent):
     def __init__(
             self,
             name: str,
-            buoyancy_model_path: str
+            buoyancy_model_path: str,
+            fluid_density: float,
+            fluid_height: float
         ):
         super().__init__(name=name)
         self.dynamics_parameters = {
-            "buoyancy_model_path": buoyancy_model_path
+            "buoyancy_model_path": buoyancy_model_path,
+            "fluid_density": fluid_density,
+            "fluid_height": fluid_height
         }
         self.buoyancy_model = trimesh.load(
             file_obj=buoyancy_model_path, 
@@ -37,36 +42,37 @@ class MeshBuoyancy(DynamicsParent):
                 "rho__water"
             ]
     
-    def compute_dynamics(self, state:State, dt:float) -> State:
+    def compute_dynamics(self, state:State, topology:Topology, dt:float) -> State:
 
-        # Array representation of position & rotation
+        # Array representation of position & rotation of root body inertial frame
         theta = np.array([state[f"theta_{axis}__boat"] for axis in AXES])
         r = np.array([state[f"r_{axis}__boat"] for axis in AXES])
         c = np.array([state[f"c_{axis}__boat"] for axis in AXES])
 
-        # Copy of the buoyancy model to move around
-        buoyancy_model_temp:trimesh.Trimesh = self.buoyancy_model.copy()
-        # Transform it to the CM frame
-        c_translation_matrix = trimesh.transformations.translation_matrix(direction=c)
-        buoyancy_model_temp.apply_transform(-c_translation_matrix)
-
-        # Transform the mesh
-        translation_matrix = trimesh.transformations.translation_matrix(direction=r)
+        # Get transformation from World frame to topology com frame
+        T_root_com = trimesh.transformations.translation_matrix(direction=c)
+        T_com_root = trimesh.transformations.translation_matrix(direction=-c)
+        T_world_root = trimesh.transformations.translation_matrix(direction=r)
         if np.linalg.norm(theta) <= EPSILON:
-            rotation_matrix = np.eye(4)
+            C_world_com = np.eye(4)
         else:
-            rotation_matrix = trimesh.transformations.rotation_matrix(
+            C_world_com = trimesh.transformations.rotation_matrix(
                 direction=theta/np.linalg.norm(theta),
                 angle=np.linalg.norm(theta)
             )
         transformation_matrix = trimesh.transformations.concatenate_matrices(
-                translation_matrix,
-                rotation_matrix
+                T_root_com,
+                T_world_root,
+                C_world_com,
+                T_com_root
         )
+
+        # Copy of the buoyancy model to move around
+        buoyancy_model_temp:trimesh.Trimesh = self.buoyancy_model.copy()
+        # Transform the mesh
         buoyancy_model_temp.apply_transform(
             matrix=transformation_matrix
         )
-        buoyancy_model_temp.apply_transform(c_translation_matrix)
 
         submerged:trimesh.Trimesh = buoyancy_model_temp.slice_plane(
             plane_origin=(0,0,0),
@@ -96,9 +102,9 @@ class MeshBuoyancy(DynamicsParent):
             water_mass = water_volume * state["rho__water"]
             force__worldframe = np.matrix([0, 0, water_mass*9.81]).T
             point_of_application__worldframe = np.matrix(submerged.center_mass).T
-            force__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], force__worldframe)
+            force__bodyframe = np.dot(C_world_com.T[0:3, 0:3], force__worldframe)
             force__comframe = force__bodyframe
-            point_of_application__bodyframe = np.dot(rotation_matrix.T[0:3, 0:3], point_of_application__worldframe - r_m)
+            point_of_application__bodyframe = np.dot(C_world_com.T[0:3, 0:3], point_of_application__worldframe - r_m)
             point_of_application__comframe = point_of_application__bodyframe - c_m
             torque__comframe = np.cross(
                 point_of_application__comframe.T,
