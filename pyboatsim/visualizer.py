@@ -171,7 +171,7 @@ class Visualizer:
             plt.cla()
             plt.close()
 
-    def animate(self, dt, save_path:str=None, verbose:bool=True, figsize=(12,10)):
+    def animate(self, save_path:str=None, verbose:bool=True, figsize=(12,10)):
 
         fig = plt.figure(figsize=figsize)
         axes = fig.add_subplot(projection='3d')
@@ -179,6 +179,7 @@ class Visualizer:
         # add_sim_data already computed the bounds
         axes = self._trim_axes(axes, self.lower_bound, self.upper_bound)
 
+        dt = self.sim.time_history[1] - self.sim.time_history[0]
         ani = animation.FuncAnimation(
             fig=fig, 
             func=lambda i, axes: self._update(i, axes), 

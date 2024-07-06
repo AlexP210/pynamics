@@ -310,7 +310,7 @@ class Topology:
                 n_dof_j = self.joints[body_name_j].get_number_degrees_of_freedom()
                 mass_matrix[(body_name_i, body_name_j)] = F.T @ self.joints[body_name_j].get_motion_subspace()
                 mass_matrix[(body_name_j, body_name_i)] = mass_matrix[(body_name_i, body_name_j)].T
-        return self.matrixify(mass_matrix)
+        return mass_matrix
 
     def get_ordered_body_list(self):
         if self.body_list is None:

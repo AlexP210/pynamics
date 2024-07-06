@@ -9,7 +9,7 @@ import tqdm as tqdm
 
 from pyboatsim.constants import HOME, AXES
 from pyboatsim.state import State
-from pyboatsim.dynamics import DynamicsParent, WaterWheel, SimpleBodyDrag, ConstantForce, MeshBuoyancy, Gravity, MeshBodyDrag
+from pyboatsim.dynamics import BodyDynamicsParent, JointDynamicsParent, Gravity, JointDamping
 from pyboatsim.math import linalg
 from pyboatsim.kinematics.topology import Topology, Frame, Body
 
@@ -17,8 +17,8 @@ class Sim:
     def __init__(
             self,
             topology: Topology,
-            body_dynamics: typing.List[DynamicsParent] = [],
-            joint_dynamics: typing.List[DynamicsParent] = [],
+            body_dynamics: typing.List[BodyDynamicsParent] = [],
+            joint_dynamics: typing.List[JointDynamicsParent] = [],
         ) -> None:
         """Initialize a `Sim`ulation.
 
@@ -27,8 +27,8 @@ class Sim:
             body_dynamics (typing.List[DynamicsParent], optional): A list of BodyDynamics modules to apply forces to the topology. Defaults to [].
             joint_dynamics (typing.List[DynamicsParent], optional): A list of JointDynamics modules to apply forces to the topology. Defaults to [].
         """
-        self.body_dynamics:typing.List[DynamicsParent] = body_dynamics
-        self.joint_dynamics:typing.List[DynamicsParent] = joint_dynamics
+        self.body_dynamics:typing.List[BodyDynamicsParent] = body_dynamics
+        self.joint_dynamics:typing.List[JointDynamicsParent] = joint_dynamics
         self.topology:Topology = topology
         self.joint_space_position_history = [
             self.topology.get_joint_space_positions(),
@@ -85,11 +85,8 @@ class Sim:
     
     def forward_dynamics(self, joint_space_forces:typing.Dict[str,np.matrix]) -> typing.Dict[str,np.matrix]:
         C = self.topology.vectorify(self.get_nonlinear_forces())
-        H = self.topology.get_mass_matrix()
-        if type(joint_space_forces) == type(np.matrix(0)):
-            tau = joint_space_forces
-        elif type(joint_space_forces) == type(dict()):
-            tau = self.topology.vectorify(joint_space_forces)
+        H = self.topology.matrixify(self.topology.get_mass_matrix())
+        tau = self.topology.vectorify(joint_space_forces)
         q_dd = np.linalg.inv(H) @ (tau - C)
         body_accelerations = self.topology.calculate_body_accelerations(q_dd)
         joint_space_accelerations = self.topology.dictionarify(q_dd)
@@ -101,30 +98,32 @@ class Sim:
         joint_space_forces = {}
         body_names = self.topology.get_ordered_body_list()
         for body_name in body_names[1:]:
+            n_dof = self.topology.joints[body_name].get_number_degrees_of_freedom()
+            joint_space_forces[body_name] = np.matrix(np.zeros(shape=(n_dof,1)))
             for dynamics_module in self.joint_dynamics:
-                joint_space_forces[body_name] = dynamics_module(self.topology, body_name)
+                joint_space_forces[body_name] += dynamics_module(self.topology, body_name)
         joint_space_accelerations = self.forward_dynamics(joint_space_forces)
         for body_name in body_names[1:]:
 
             A = joint_space_accelerations[body_name]
             if len(self.joint_space_position_history) == 1:
-                x0 = self.joint_space_position_history[0][body_name]
-                v0 = self.joint_space_velocity_history[0][body_name]
-                x1 = x0 + v0*dt + 0.5*A*dt**2
-                v1 = v0 + A*dt
-                # Update joint position
-                self.topology.joints[body_name].set_configuration(x1)
-                # Update joint velocity
-                self.topology.joints[body_name].set_configuration_d(v1)
+                xn = self.joint_space_position_history[0][body_name]
+                vn = self.joint_space_velocity_history[0][body_name]
+                xnplus1 = xn + vn*dt + 0.5*A*dt**2
+                vnplus1 = vn + A*dt
             else:
                 xn = self.joint_space_position_history[-1][body_name]
                 xnminus1 = self.joint_space_position_history[-2][body_name]
                 xnplus1 = 2*xn - xnminus1 + A*dt**2
                 vnplus1 = (xnplus1 - xnminus1) / (2*dt)
-                # Update joint position
-                self.topology.joints[body_name].set_configuration(xnplus1)
-                # Update joint velocity
-                self.topology.joints[body_name].set_configuration_d(vnplus1)
+        # xn = self.joint_space_position_history[-1][body_name]
+        # vn = self.joint_space_velocity_history[-1][body_name]
+        # vnplus1 = vn + A*dt
+        # xnplus1 = xn + vn*dt
+        # Update joint position
+        self.topology.joints[body_name].set_configuration(xnplus1)
+        # Update joint velocity
+        self.topology.joints[body_name].set_configuration_d(vnplus1)
         self.joint_space_position_history.append(self.topology.get_joint_space_positions())
         self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
         self.time_history.append(self.time_history[-1]+dt)
@@ -147,15 +146,21 @@ if __name__ == "__main__":
     from pyboatsim.example.example_topology import get_pendulum
 
     N = 1
+    eps = 0.01
+    g = -9.81
+    damp = 0.2
     pendulum, pendulum_vis = get_pendulum(N)
-    pendulum.joints["Arm 0"].set_configuration(np.matrix([0.9*np.pi/2]))
+    pendulum.joints["Arm 0"].set_configuration(np.matrix([(1-eps)*np.pi/2]))
     sim = Sim(
         topology=pendulum, 
-        body_dynamics=[
-            Gravity("gravity", -9.81, 2)
-        ])
+        body_dynamics=[Gravity("gravity", g, 2),],
+        joint_dynamics=[JointDamping("damping", damp),]
+    )
 
-    sim.simulate(10, 0.01, verbose=True)
+    sim.simulate(30, 0.01, verbose=True)
+    
+    pendulum_vis.add_sim_data(sim)
+    pendulum_vis.animate(f"Damping_Test_{N}.mp4")
 
     plt.scatter(
         sim.time_history, 
@@ -164,10 +169,23 @@ if __name__ == "__main__":
         c="r", marker="x", s=0.5)
     plt.plot(
         sim.time_history, 
-        [-0.1*np.pi/2 * np.cos(np.sqrt(9.81) * t) + np.pi/2 for t in sim.time_history],
+        [-eps*np.pi/2 * np.exp(-damp/2 * t) * np.cos(np.sqrt(-g) * t) + np.pi/2 for t in sim.time_history],
         label="Expected"
     )
+    plt.plot(
+        sim.time_history, 
+        [eps*np.pi/2 * np.exp(-damp/2 * t) + np.pi/2 for t in sim.time_history],
+        c="orange"
+    )
+    plt.plot(
+        sim.time_history, 
+        [-eps*np.pi/2 * np.exp(-damp/2 * t) + np.pi/2 for t in sim.time_history],
+        label="Expected Envelope",
+        c="orange"
+    )
+
     plt.xlabel("Time (s)")
     plt.ylabel("Pendulum Angle (rad)")
+    plt.legend()
 
     plt.show()
