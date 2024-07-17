@@ -353,7 +353,7 @@ class Topology:
             joint_accelerations = q_dd
         body_names = self.get_ordered_body_list()
         # Initialize the states to track velocity & acceleration
-        body_accelerations[body_names[0]] = np.matrix(np.zeros(6)).T
+        body_accelerations[body_names[0]] = np.matrix(np.zeros(shape=(6,1)))
         for body_name in body_names[1:]:
             joint = self.joints[body_name]
             if body_name in joint_accelerations:

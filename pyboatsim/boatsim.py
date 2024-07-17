@@ -42,7 +42,6 @@ class Sim:
 
     def inverse_dynamics(self, joint_space_accelerations:typing.Dict[str, np.matrix]) -> typing.Dict[str, np.matrix]:
         body_names = self.topology.get_ordered_body_list()
-
         body_accelerations = self.topology.calculate_body_accelerations(joint_space_accelerations)
        
         S = {}
@@ -55,7 +54,6 @@ class Sim:
             S[body_name] = S_i
             i_X_0 = self.topology.get_X("World", "Identity", body_name, "Identity")
             i_X_0_star = self.topology.get_Xstar("World", "Identity", body_name, "Identity") #linalg.X_star(i_X_0)
-
             f1 = self.topology.bodies[body_name].mass_matrix @ body_accelerations[body_name]
             f2 = linalg.cross_star(self.topology.bodies[body_name].get_velocity()) @ self.topology.bodies[body_name].mass_matrix @ self.topology.bodies[body_name].get_velocity()
             f3 = np.matrix(np.zeros(shape=(6,1)))
@@ -77,7 +75,7 @@ class Sim:
         # Initialize the states to track velocity & acceleration
         nonlinear_joint_space_forces = self.inverse_dynamics(
             joint_space_accelerations={
-                body_name: np.matrix(np.zeros((self.topology.joints[body_name].get_number_degrees_of_freedom())))
+                body_name: np.matrix(np.zeros((self.topology.joints[body_name].get_number_degrees_of_freedom()))).T
                 for body_name in body_names
             }
         )
@@ -98,8 +96,8 @@ class Sim:
         joint_space_forces = {}
         body_names = self.topology.get_ordered_body_list()
         for body_name in body_names[1:]:
-            n_dof = self.topology.joints[body_name].get_number_degrees_of_freedom()
-            joint_space_forces[body_name] = np.matrix(np.zeros(shape=(n_dof,1)))
+            q_shape = self.topology.joints[body_name].get_configuration().shape
+            joint_space_forces[body_name] = np.matrix(np.zeros(shape=q_shape))
             for dynamics_module in self.joint_dynamics:
                 joint_space_forces[body_name] += dynamics_module(self.topology, body_name)
         joint_space_accelerations = self.forward_dynamics(joint_space_forces)
@@ -116,18 +114,21 @@ class Sim:
                 xnminus1 = self.joint_space_position_history[-2][body_name]
                 xnplus1 = 2*xn - xnminus1 + A*dt**2
                 vnplus1 = (xnplus1 - xnminus1) / (2*dt)
-        # xn = self.joint_space_position_history[-1][body_name]
-        # vn = self.joint_space_velocity_history[-1][body_name]
-        # vnplus1 = vn + A*dt
-        # xnplus1 = xn + vn*dt
-        # Update joint position
-        self.topology.joints[body_name].set_configuration(xnplus1)
-        # Update joint velocity
-        self.topology.joints[body_name].set_configuration_d(vnplus1)
+            # Update joint position
+            self.topology.joints[body_name].set_configuration(xnplus1)
+            # Update joint velocity
+            self.topology.joints[body_name].set_configuration_d(vnplus1)
+        # Save the current state
         self.joint_space_position_history.append(self.topology.get_joint_space_positions())
         self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
         self.time_history.append(self.time_history[-1]+dt)
+
+        # Update the velocities of each body based on the velocities of each joint
         self.topology.update_body_velocities()
+        
+        # Update the dynamics modules
+        for dynamics_module in self.body_dynamics: dynamics_module.update(self.topology, dt)
+        for dynamics_module in self.joint_dynamics: dynamics_module.update(self.topology, dt)
 
         return
 

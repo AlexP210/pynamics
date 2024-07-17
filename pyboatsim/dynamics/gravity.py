@@ -15,9 +15,10 @@ class Gravity(BodyDynamicsParent):
             self,
             name: str,
             g: float,
-            direction: int
+            direction: int,
+            body_names: typing.List[str] = []
         ):
-        super().__init__(name=name)
+        super().__init__(name=name, body_names=body_names)
         self.g = g
         self.direction = direction
     

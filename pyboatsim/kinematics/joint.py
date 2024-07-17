@@ -3,6 +3,7 @@ import abc
 import numpy as np
 
 import pyboatsim.math.linalg as linalg
+from pyboatsim.constants import EPSILON
 
 class Joint(abc.ABC):
     
@@ -16,8 +17,7 @@ class Joint(abc.ABC):
     def get_c(self): pass
     
     def get_motion_subspace(self):
-        if self.motion_subspace.size != 0: return self.motion_subspace
-        else: return np.matrix(np.zeros(shape=(6,6)))
+        return self.motion_subspace
     def get_constraint_force_subspace(self):
         return self.constraint_force_subspace
     def get_velocity(self):
@@ -84,21 +84,20 @@ class RevoluteJoint(Joint):
 class FreeJoint(Joint):
     def __init__(self):
         self.motion_subspace = np.matrix(np.eye(6,6))
-        self.constraint_force_subspace = 0
-        self.q = np.matrix(np.zeros(1)).T
-        self.q_d = np.matrix(np.zeros(self.q.shape)).T
+        self.constraint_force_subspace = np.matrix(np.zeros(shape=(6,0)))
+        self.q = np.matrix(np.zeros(shape=(6,1)))
+        self.q_d = np.matrix(np.zeros(self.q.shape))
 
     def get_translation_vector(self):
-        r = self.q[:3,0]
+        r = self.q[3:,0]
         return r
     def get_rotation_matrix(self):
-        rotation_angle = np.linalg.norm(self.q[3:,0])
-        rotation_axis = self.q[3:,0] / rotation_angle
-        c = np.cos(rotation_angle)[0,0]
-        s = np.sin(rotation_angle)[0,0]
+        rotation_angle = np.linalg.norm(self.q[:3,0])
+        if rotation_angle < EPSILON: return np.matrix(np.eye(3,3))
+        rotation_axis = self.q[:3,0] / rotation_angle
+        c = np.cos(rotation_angle)
+        s = np.sin(rotation_angle)
         C = 1-c
-        rotation_axis = np.matrix(np.zeros(3)).T
-        rotation_axis[self.axis] = 1
         x = rotation_axis[0,0]
         y = rotation_axis[1,0]
         z = rotation_axis[2,0]
@@ -108,14 +107,35 @@ class FreeJoint(Joint):
             [z*x*C-y*s, z*y*C+x*s, z*z*C+c]
         ])
     def get_c(self):
-        return np.matrix(np.zeros((6,6))).T
+        return np.matrix(np.zeros(6)).T
+
+class TranslationJoint(Joint):
+    def __init__(self):
+        self.motion_subspace = np.matrix(np.block(
+            [[np.zeros(shape=(3,3))],
+             [np.eye(3,3)]]
+        ))
+        self.constraint_force_subspace = np.matrix(np.block(
+            [[np.eye(3,3)],
+             [np.zeros(shape=(3,3))]]
+        ))
+        self.q = np.matrix(np.zeros(shape=(3,1)))
+        self.q_d = np.matrix(np.zeros(self.q.shape))
+    def get_translation_vector(self):
+        r = self.q
+        return r
+    def get_rotation_matrix(self):
+        return np.matrix(np.eye(3,3))
+    def get_c(self):
+        return np.matrix(np.zeros(6)).T
+
 
 class FixedJoint(Joint):
     def __init__(self):
-        self.motion_subspace = np.matrix([[]]).T
-        self.constraint_force_subspace = np.matrix(np.eye(6,6)).T
-        self.q = np.matrix([[]])
-        self.q_d = np.matrix([[]])
+        self.motion_subspace = np.matrix(np.zeros(shape=(6,0)))
+        self.constraint_force_subspace = np.matrix(np.eye(6,6))
+        self.q = np.matrix(np.zeros(shape=(0,1)))
+        self.q_d = np.matrix(np.zeros(self.q.shape))
         
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3,1)))

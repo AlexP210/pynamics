@@ -15,9 +15,10 @@ class JointDamping(JointDynamicsParent):
             self,
             name: str,
             damping_factor: float,
+            joint_names:typing.List[str] = []
         ):
         super().__init__(name=name)
         self.damping_factor = damping_factor
     
     def compute_dynamics(self, topology:Topology, body_name:str) -> typing.Tuple[np.matrix, np.matrix]:
-        return [-self.damping_factor * topology.joints[body_name].get_configuration_d()]
+        return [-self.damping_factor * topology.joints[body_name].get_configuration_d(),]

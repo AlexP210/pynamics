@@ -6,13 +6,14 @@ from pyboatsim.kinematics.topology import Topology
 from pyboatsim.math.linalg import R3_cross_product_matrix
 
 class BodyDynamicsParent(abc.ABC):
-    def __init__(self, name):
+    def __init__(self, name:str, body_names:typing.List[str]=[]):
         """
         Each instance of Dynamics needs to implement an initialization that
         creates an attribute `dynamics_parameters`, which is a dictionary
         that contains the parameters used by the dynamics module.
         """
         self.name = name
+        self.body_names = body_names
 
     @abc.abstractmethod
     def compute_dynamics(self, topology:Topology, body_name:str) -> typing.List[typing.Tuple[np.matrix, np.matrix]]:
@@ -26,22 +27,26 @@ class BodyDynamicsParent(abc.ABC):
 
     def __call__(self, topology:Topology, body_name:str) -> np.matrix:
         total_wrench = np.matrix(np.zeros(shape=(6,1)))
-
-        for force, point_of_application in self.compute_dynamics(topology, body_name):
-            wrench = np.matrix(np.zeros(shape=(6,1)))
-            wrench[:3,0] = R3_cross_product_matrix(point_of_application) @ force
-            wrench[3:,0] = force
-            total_wrench += wrench
-        return wrench
+        if body_name in self.body_names or self.body_names == []:
+            for force, point_of_application in self.compute_dynamics(topology, body_name):
+                wrench = np.matrix(np.zeros(shape=(6,1)))
+                wrench[:3,0] = R3_cross_product_matrix(point_of_application) @ force
+                wrench[3:,0] = force
+                total_wrench += wrench
+        return total_wrench
+    
+    def update(self, topology:Topology, dt:float):
+        pass
     
 class JointDynamicsParent(abc.ABC):
-    def __init__(self, name):
+    def __init__(self, name:str, joint_names:typing.List[str]=[]):
         """
         Each instance of Dynamics needs to implement an initialization that
         creates an attribute `dynamics_parameters`, which is a dictionary
         that contains the parameters used by the dynamics module.
         """
         self.name = name
+        self.joint_names = joint_names
 
     @abc.abstractmethod
     def compute_dynamics(self, topology:Topology, body_name:str) -> np.matrix:
@@ -53,5 +58,8 @@ class JointDynamicsParent(abc.ABC):
             "Implement `compute_dynamics()` in your `Dynamics` subclass."
             )
 
-    def __call__(self, topology:Topology, body_name:str) -> np.matrix:    
-        return sum(self.compute_dynamics(topology, body_name))
+    def __call__(self, topology:Topology, joint_name:str) -> np.matrix:    
+        return ((joint_name in self.joint_names) or self.joint_names == [])*sum(self.compute_dynamics(topology, joint_name))
+    
+    def update(self, topology:Topology, dt:float):
+        pass
