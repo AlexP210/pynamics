@@ -46,15 +46,15 @@ if __name__ == "__main__":
             RevoluteMotor(
                 name="motor",
                 joint_name="Pendulum Body",
-                electromotive_constant=1,
+                electromotive_constant=0.05,
                 resistance=1,
-                inductance=1,
-                voltage=1,
+                inductance=0.5,
+                voltage=10,
             ),
             JointDamping(
                 name="damp",
                 joint_names=["Pendulum Body",],
-                damping_factor=0.05
+                damping_factor=0.1
             )
         ]
     )
