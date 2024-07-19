@@ -13,11 +13,10 @@ from pyboatsim.math.linalg import R3_cross_product_matrix
 class JointDamping(JointDynamicsParent):
     def __init__(
             self,
-            name: str,
             damping_factor: float,
             joint_names:typing.List[str] = []
         ):
-        super().__init__(name=name)
+        super().__init__(joint_names=joint_names)
         self.damping_factor = damping_factor
     
     def compute_dynamics(self, topology:Topology, body_name:str) -> typing.Tuple[np.matrix, np.matrix]:

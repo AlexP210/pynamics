@@ -17,8 +17,8 @@ class Sim:
     def __init__(
             self,
             topology: Topology,
-            body_dynamics: typing.List[BodyDynamicsParent] = [],
-            joint_dynamics: typing.List[JointDynamicsParent] = [],
+            body_dynamics: typing.Dict[str, BodyDynamicsParent] = {},
+            joint_dynamics: typing.Dict[str, JointDynamicsParent] = {},
         ) -> None:
         """Initialize a `Sim`ulation.
 
@@ -27,18 +27,14 @@ class Sim:
             body_dynamics (typing.List[DynamicsParent], optional): A list of BodyDynamics modules to apply forces to the topology. Defaults to [].
             joint_dynamics (typing.List[DynamicsParent], optional): A list of JointDynamics modules to apply forces to the topology. Defaults to [].
         """
-        self.body_dynamics:typing.List[BodyDynamicsParent] = body_dynamics
-        self.joint_dynamics:typing.List[JointDynamicsParent] = joint_dynamics
+        self.body_dynamics:typing.List[BodyDynamicsParent] = body_dynamics #{bd.name: bd for bd in body_dynamics}
+        self.joint_dynamics:typing.List[JointDynamicsParent] = joint_dynamics #{jd.name: jd for jd in joint_dynamics}
         self.topology:Topology = topology
-        self.joint_space_position_history = [
-            self.topology.get_joint_space_positions(),
-        ]
-        self.joint_space_velocity_history = [
-            self.topology.get_joint_space_velocities(),
-        ]
-        self.time_history = [
-            0
-        ]
+        self.joint_space_position_history = []
+        self.joint_space_velocity_history = []
+        self.time_history = []
+        self.data_history:typing.Dict[str:typing.List[float]] = {}
+        self._data_collection_callbacks:typing.List[typing.Callable[[Sim], typing.Dict[str, float]]] = []
 
     def inverse_dynamics(self, joint_space_accelerations:typing.Dict[str, np.matrix]) -> typing.Dict[str, np.matrix]:
         body_names = self.topology.get_ordered_body_list()
@@ -57,7 +53,7 @@ class Sim:
             f1 = self.topology.bodies[body_name].mass_matrix @ body_accelerations[body_name]
             f2 = linalg.cross_star(self.topology.bodies[body_name].get_velocity()) @ self.topology.bodies[body_name].mass_matrix @ self.topology.bodies[body_name].get_velocity()
             f3 = np.matrix(np.zeros(shape=(6,1)))
-            for dynamics_module in self.body_dynamics:
+            for name, dynamics_module in self.body_dynamics.items():
                 force = i_X_0_star @ dynamics_module(self.topology, body_name)
                 f3 += force
             total_joint_forces[body_name] = f1+f2-f3
@@ -93,12 +89,41 @@ class Sim:
         return joint_space_accelerations       
 
     def step(self, dt:float) -> None:
+
+        # Save the current state
+        if "Time" not in self.data_history: self.data_history["Time"] = [0,]
+        else: self.data_history["Time"].append(self.data_history["Time"][-1]+dt)
+        joint_space_positions = self.topology.get_joint_space_positions()
+        joint_space_velocities = self.topology.get_joint_space_velocities()
+
+        for joint_name, joint in self.topology.joints.items():
+            for dof_idx in range(joint.get_number_degrees_of_freedom()):
+                position_data_field = f"{joint_name} / Position {dof_idx}"
+                position_data = joint_space_positions[joint_name][dof_idx,0]
+                velocity_data_field = f"{joint_name} / Velocity {dof_idx}"
+                velocity_data = joint_space_velocities[joint_name][dof_idx,0]
+                self._add_to_data(position_data_field, position_data)
+                self._add_to_data(velocity_data_field, velocity_data)
+        
+        for body_dynamics_module_name, body_dynamics_module in self.body_dynamics.items():
+            for data_field_name, data_value in body_dynamics_module.get_data().items():
+                self._add_to_data(f"{body_dynamics_module_name} / {data_field_name}", data_value)
+
+        for joint_dynamics_module_name, joint_dynamics_module in self.joint_dynamics.items():
+            for data_field_name, data_value in joint_dynamics_module.get_data().items():
+                self._add_to_data(f"{joint_dynamics_module_name} / {data_field_name}", data_value)
+        
+        # TODO: Update Visualizer to no longer need these so they can be deprecated 
+        self.joint_space_position_history.append(self.topology.get_joint_space_positions())
+        self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
+        self.time_history.append(self.time_history[-1]+dt if self.time_history else 0)
+
         joint_space_forces = {}
         body_names = self.topology.get_ordered_body_list()
         for body_name in body_names[1:]:
             q_shape = self.topology.joints[body_name].get_configuration().shape
             joint_space_forces[body_name] = np.matrix(np.zeros(shape=q_shape))
-            for dynamics_module in self.joint_dynamics:
+            for dynamics_module_name, dynamics_module in self.joint_dynamics.items():
                 joint_space_forces[body_name] += dynamics_module(self.topology, body_name)
         joint_space_accelerations = self.forward_dynamics(joint_space_forces)
         for body_name in body_names[1:]:
@@ -118,17 +143,13 @@ class Sim:
             self.topology.joints[body_name].set_configuration(xnplus1)
             # Update joint velocity
             self.topology.joints[body_name].set_configuration_d(vnplus1)
-        # Save the current state
-        self.joint_space_position_history.append(self.topology.get_joint_space_positions())
-        self.joint_space_velocity_history.append(self.topology.get_joint_space_velocities())
-        self.time_history.append(self.time_history[-1]+dt)
 
         # Update the velocities of each body based on the velocities of each joint
         self.topology.update_body_velocities()
         
         # Update the dynamics modules
-        for dynamics_module in self.body_dynamics: dynamics_module.update(self.topology, dt)
-        for dynamics_module in self.joint_dynamics: dynamics_module.update(self.topology, dt)
+        for name, dynamics_module in self.body_dynamics.items(): dynamics_module.update(self.topology, dt)
+        for name, dynamics_module in self.joint_dynamics.items(): dynamics_module.update(self.topology, dt)
 
         return
 
@@ -142,6 +163,15 @@ class Sim:
         else:
             for _ in range(int(delta_t//dt+1)):
                 self.step(dt=dt)
+
+    def save_data(self, path:str):
+        pd.DataFrame(self.data_history).to_csv(path, index=False, sep=",")
+
+    def _add_to_data(self, data_field_name, data_value):
+        if data_field_name in self.data_history:
+            self.data_history[data_field_name].append(data_value)
+        else:
+            self.data_history[data_field_name] = [data_value,]
     
 if __name__ == "__main__":
     from pyboatsim.example.example_topology import get_pendulum

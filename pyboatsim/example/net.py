@@ -29,7 +29,7 @@ if __name__ == "__main__":
     net_world = topo.Topology()
     N = 9
     s = 1
-    springs = []
+    springs = {}
     for i in range(N):
         for j in range(N):
             net_world.add_frame(
@@ -47,20 +47,16 @@ if __name__ == "__main__":
                 joint=joint_to_use
             )
             if i*j: 
-                springs.extend([
-                    Spring(
-                        f"{i-1}{j}-{i}{j} Spring", 
+                springs[f"{i-1}{j}-{i}{j} Spring"] = Spring(
                         body1=f"{i-1}{j} Body", frame1="Identity",
                         body2=f"{i}{j} Body", frame2=f"Identity",
                         stiffness=50
-                    ),
-                    Spring(
-                        f"{i}{j-1}-{i}{j} Spring", 
+                    )
+                springs[f"{i}{j-1}-{i}{j} Spring"] = Spring(
                         body1=f"{i}{j-1} Body", frame1="Identity",
                         body2=f"{i}{j} Body", frame2=f"Identity",
                         stiffness=50
                     ),
-                ])
     net_world.joints[f"{N//2}{N//2} Body"].set_configuration(np.matrix([0, -1, 0]).T)
 
     net_world_vis = Visualizer(
@@ -78,7 +74,7 @@ if __name__ == "__main__":
     net_world_sim = Sim(
         topology=net_world, 
         body_dynamics=springs, 
-        joint_dynamics=[JointDamping("damp", 2),]
+        joint_dynamics={"damping": JointDamping(2)}
     )
 
     net_world_sim.simulate(5, 0.02, verbose=True)

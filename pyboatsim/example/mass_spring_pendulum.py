@@ -46,17 +46,16 @@ if __name__ == "__main__":
 
     spring_world_sim = Sim(
         topology=spring_world,
-        body_dynamics=[
-            Spring(
-                name="spring",
+        body_dynamics={
+            "spring": Spring(
                 body1="Pendulum Body",
                 frame1="Arm End",
                 body2="Bouncy Body",
                 frame2="Identity",
                 stiffness=10
             ),
-            Gravity("gravity", -9.81, 2)
-        ]
+            "gravity": Gravity(-9.81, 2)
+        }
     )
 
     spring_world_sim.simulate(delta_t=10, dt=0.01, verbose=True)

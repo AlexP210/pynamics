@@ -6,13 +6,12 @@ from pyboatsim.kinematics.topology import Topology
 from pyboatsim.math.linalg import R3_cross_product_matrix
 
 class BodyDynamicsParent(abc.ABC):
-    def __init__(self, name:str, body_names:typing.List[str]=[]):
+    def __init__(self, body_names:typing.List[str]=[]):
         """
         Each instance of Dynamics needs to implement an initialization that
         creates an attribute `dynamics_parameters`, which is a dictionary
         that contains the parameters used by the dynamics module.
         """
-        self.name = name
         self.body_names = body_names
 
     @abc.abstractmethod
@@ -37,15 +36,17 @@ class BodyDynamicsParent(abc.ABC):
     
     def update(self, topology:Topology, dt:float):
         pass
+
+    def get_data(self) -> typing.Dict[str, float]:
+        return {}
     
 class JointDynamicsParent(abc.ABC):
-    def __init__(self, name:str, joint_names:typing.List[str]=[]):
+    def __init__(self, joint_names:typing.List[str]=[]):
         """
         Each instance of Dynamics needs to implement an initialization that
         creates an attribute `dynamics_parameters`, which is a dictionary
         that contains the parameters used by the dynamics module.
         """
-        self.name = name
         self.joint_names = joint_names
 
     @abc.abstractmethod
@@ -63,3 +64,6 @@ class JointDynamicsParent(abc.ABC):
     
     def update(self, topology:Topology, dt:float):
         pass
+
+    def get_data(self) -> typing.Dict[str, float]:
+        return {}

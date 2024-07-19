@@ -27,6 +27,7 @@ if __name__ == "__main__":
     pendulum_world = topo.Topology()
     pendulum_world.add_connection("World", "Identity", pendulum_body.copy(), "Pendulum Body", joint.RevoluteJoint(1))
     pendulum_world.joints["Pendulum Body"].set_configuration(np.matrix([[np.pi/2]]).T)
+    pendulum_world.joints["Pendulum Body"].set_configuration_d(np.matrix([[np.pi/4]]).T)
     pendulum_world_vis = Visualizer(
         topology=pendulum_world,
         visualization_models={
@@ -39,27 +40,26 @@ if __name__ == "__main__":
 
     pendulum_world_sim = Sim(
         topology=pendulum_world,
-        body_dynamics=[
-            Gravity("gravity", -9.81, 2)
-        ],
-        joint_dynamics=[
-            RevoluteMotor(
-                name="motor",
+        # body_dynamics={
+        #     "gravity": Gravity(-9.81, 2)
+        # },
+        joint_dynamics={
+            "Motor": RevoluteMotor(
                 joint_name="Pendulum Body",
                 electromotive_constant=0.05,
-                resistance=1,
+                resistance=0.1,
                 inductance=0.5,
-                voltage=10,
+                voltage=0,
             ),
-            JointDamping(
-                name="damp",
-                joint_names=["Pendulum Body",],
-                damping_factor=0.1
-            )
-        ]
+            # "damping": JointDamping(
+            #     joint_names=["Pendulum Body",],
+            #     damping_factor=0.1
+            # )
+        }
     )
 
     pendulum_world_sim.simulate(delta_t=15, dt=0.01, verbose=True)
+    pendulum_world_sim.save_data("./Motor_Test.csv")
     pendulum_world_vis.add_sim_data(pendulum_world_sim)
     pendulum_world_vis.animate(save_path="Motor_Test.mp4", verbose=True)
 

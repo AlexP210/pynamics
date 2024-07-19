@@ -13,12 +13,11 @@ from pyboatsim.math.linalg import R3_cross_product_matrix
 class Gravity(BodyDynamicsParent):
     def __init__(
             self,
-            name: str,
             g: float,
             direction: int,
             body_names: typing.List[str] = []
         ):
-        super().__init__(name=name, body_names=body_names)
+        super().__init__(body_names=body_names)
         self.g = g
         self.direction = direction
     

@@ -11,14 +11,13 @@ from pyboatsim.kinematics.topology import Topology
 class Spring(BodyDynamicsParent):
     def __init__(
             self,
-            name: str,
             body1: str,
             frame1:str,
             body2:str,
             frame2:str,
             stiffness:float
         ):
-        super().__init__(name=name, body_names=[body1, body2])
+        super().__init__(body_names=[body1, body2])
         self.stiffness = stiffness
         self.body1 = body1
         self.frame1 = frame1
