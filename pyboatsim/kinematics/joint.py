@@ -90,7 +90,7 @@ class FreeJoint(Joint):
 
     def get_translation_vector(self):
         r = self.q[3:,0]
-        return r
+        return self.get_rotation_matrix()@r
     def get_rotation_matrix(self):
         rotation_angle = np.linalg.norm(self.q[:3,0])
         if rotation_angle < EPSILON: return np.matrix(np.eye(3,3))

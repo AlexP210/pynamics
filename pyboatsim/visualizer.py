@@ -136,6 +136,10 @@ class Visualizer:
             )
             self.visualization_artists[body_name] = artist
             artists.append(artist)
+            
+        axes.set_xlabel("X (m)")
+        axes.set_ylabel("Y (m)")
+        axes.set_zlabel("Z (m)")
 
         return axes, artists
 
