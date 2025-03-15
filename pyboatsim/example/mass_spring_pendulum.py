@@ -1,5 +1,6 @@
 import numpy as np
 import trimesh
+import os
 
 from pyboatsim.dynamics import Gravity, JointDamping, Spring, RevoluteMotor
 import pyboatsim.kinematics.topology as topo
@@ -34,11 +35,11 @@ if __name__ == "__main__":
         topology=spring_world,
         visualization_models={
             (f"Pendulum Body", "Identity"): trimesh.load(
-                file_obj="/home/alex/Projects/PyBoAtSim/models/link/Link1m.obj", 
+                file_obj=os.path.join("models", "link", "Link1m.obj"), 
                 file_type="obj", 
                 force="mesh"),
             (f"Bouncy Body", "Identity"): trimesh.load(
-                file_obj="/home/alex/Projects/PyBoAtSim/models/common/UnitBall.obj", 
+                file_obj=os.path.join("models", "common", "UnitBall.obj"), 
                 file_type="obj", 
                 force="mesh"),
         }

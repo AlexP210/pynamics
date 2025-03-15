@@ -1,4 +1,5 @@
 import numpy as np
+import trimesh
 from enum import Enum
 import typing as types
 from pyboatsim.constants import EPSILON
@@ -40,12 +41,27 @@ class Body:
             mass:float=1,
             center_of_mass:np.matrix=np.zeros((3,1)),
             inertia_matrix:np.matrix=np.eye(3,3),
+            mass_properties_model:trimesh.Trimesh = None,
+            density = None,
             velocity:np.matrix=np.matrix(np.zeros((6,1))),
             acceleration:np.matrix=np.matrix(np.zeros((6,1))),
         ):
-        self.mass = mass
-        self.center_of_mass = center_of_mass
-        self.inertia_matrix = inertia_matrix
+        if mass_properties_model != None and density != None:
+            if not mass_properties_model.is_watertight: raise ValueError(f"Mass properties model is not watertight.")
+            mass_properties_model.merge_vertices()
+            mass_properties_model.fix_normals()
+            mass_properties_model.density = density
+            self.mass = mass_properties_model.mass
+            self.center_of_mass = np.matrix(mass_properties_model.center_mass).T
+            self.inertia_matrix = np.matrix(
+                mass_properties_model.moment_inertia_frame(np.eye(4,4))
+            )
+
+        else:
+            self.mass = mass
+            self.center_of_mass = center_of_mass
+            self.inertia_matrix = inertia_matrix
+
         self.velocity = velocity
         self.acceleration = acceleration
         # Pg. 33
