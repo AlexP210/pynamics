@@ -354,7 +354,7 @@ class Topology:
             v_J = joint.get_velocity()
             i__X__lambda_i = X_J @ X_T
             i_X_0 = self.get_X("World", "Identity", body_name, "Identity")
-            body_velocities[body_name] = i__X__lambda_i @ self.bodies[parent_body_name].get_velocity() + v_J
+            body_velocities[body_name] = i__X__lambda_i @ body_velocities[parent_body_name] + v_J
         return body_velocities
     
     def update_body_velocities(self):
