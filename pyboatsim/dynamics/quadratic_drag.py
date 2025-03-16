@@ -88,10 +88,10 @@ class QuadraticDrag(BodyDynamicsParent):
             A = 0.5*np.linalg.norm(
                 np.cross(vertices[1]-vertices[0], vertices[2]-vertices[1])
             )
-            A_perp = A*float(np.dot(-normal.T, v_hat))
+            A_perp = A*np.dot(-normal.T, v_hat)[0,0]
 
             # Calculate the force magnitude
-            v_squared = float(np.dot(v.T, v))
+            v_squared = np.dot(v.T, v)[0,0]
             force_magnitude = 0.5*self.fluid_density*self.drag_coefficient*A_perp*v_squared
             force = force_magnitude*v_hat
             forces_and_points_of_application.append((force, point_of_application))

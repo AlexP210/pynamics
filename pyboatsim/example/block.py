@@ -8,6 +8,7 @@ import pyboatsim.kinematics.topology as topo
 import pyboatsim.kinematics.joint as joint
 from pyboatsim.boatsim import Sim
 from pyboatsim.visualizer import Visualizer
+from pyboatsim.constants import HOME
 
 if __name__ == "__main__":
 
@@ -24,13 +25,13 @@ if __name__ == "__main__":
 
     water_world = topo.Topology()
     water_world.add_connection("World", "Identity", body.copy(), "Block", joint.FreeJoint())
-    water_world.joints["Block"].set_configuration_d(np.matrix([1, 0, 0, 0, 0, 0]).T)
-    water_world.joints["Block"].set_configuration(np.matrix([np.pi/2, np.pi/2, np.pi/2, 5, 5, 5]).T)
+    water_world.joints["Block"].set_configuration_d(np.matrix([0, 0, 0, 0, 0, 0]).T)
+    water_world.joints["Block"].set_configuration(np.matrix([1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4), 1, 1, 1]).T)
     water_world_vis = Visualizer(
         topology=water_world,
         visualization_models={
             (f"Block", "Identity"): trimesh.load(
-                file_obj=os.path.join("models", "cup", "cup_boundary_poked.obj"), 
+                file_obj=os.path.join(HOME, "models", "common", "Cube.obj"), 
                 file_type="obj", 
                 force="mesh"),
         }

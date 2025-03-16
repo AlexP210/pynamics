@@ -175,7 +175,7 @@ class Visualizer:
             plt.cla()
             plt.close()
 
-    def animate(self, save_path:str=None, verbose:bool=True, figsize=(12,10)):
+    def animate(self, save_path:str=None, verbose:bool=False, figsize=(12,10)):
 
         fig = plt.figure(figsize=figsize)
         axes = fig.add_subplot(projection='3d')
@@ -195,8 +195,14 @@ class Visualizer:
         if save_path is None: 
             plt.show()
         else:
-            with tqdm.tqdm(total=len(self.sim.joint_space_position_history)) as bar:
-                ani.save(save_path, progress_callback=lambda i, n: bar.update())
+            if verbose:
+                with tqdm.tqdm(total=len(self.sim.joint_space_position_history)) as bar:
+                    ani.save(save_path, progress_callback=lambda i, n: bar.update())
+                    plt.clf()
+                    plt.cla()
+                    plt.close()
+            else:
+                ani.save(save_path)
                 plt.clf()
                 plt.cla()
                 plt.close()

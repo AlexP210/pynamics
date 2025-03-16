@@ -323,7 +323,7 @@ class Topology:
                 F = self.get_Xstar(body_name_j, "Identity", parent_body_name_j, "Identity") @ F
                 body_name_j = parent_body_name_j
                 parent_body_name_j, _ = self.tree[body_name_j]
-                n_dof_j = self.joints[body_name_j].get_number_degrees_of_freedom()
+                n_dof_j = self.joints[body_name_j].get_configuration_d().size
                 mass_matrix[(body_name_i, body_name_j)] = F.T @ self.joints[body_name_j].get_motion_subspace()
                 mass_matrix[(body_name_j, body_name_i)] = mass_matrix[(body_name_i, body_name_j)].T
         return mass_matrix
@@ -375,7 +375,7 @@ class Topology:
             if body_name in joint_accelerations:
                 joint_acceleration = joint_accelerations[body_name]
             else:
-                joint_acceleration = np.matrix(np.zeros(shape=(joint.get_number_degrees_of_freedom(),1)))
+                joint_acceleration = np.matrix(np.zeros(shape=(joint.get_configuration_d().size,1)))
             parent_body_name, parent_frame_name = self.tree[body_name]
             X_J = self.get_X(parent_body_name, parent_frame_name, body_name, "Identity")
             X_T = self.get_X(parent_body_name, "Identity", parent_body_name, parent_frame_name)
@@ -398,9 +398,9 @@ class Topology:
             self.bodies[body_name].set_acceleration(acceleration)
 
 
-    def vectorify(self, dictionary):
+    def vectorify_velocity(self, dictionary):
         body_names = self.get_ordered_body_list()
-        dof = [self.joints[body_name].get_number_degrees_of_freedom() for body_name in body_names]
+        dof = [self.joints[body_name].get_configuration_d().size for body_name in body_names]
         N = sum(dof)
         vector = np.matrix(np.zeros(shape=(N,1)))
         s = 0
@@ -413,10 +413,26 @@ class Topology:
             vector[s:s+dof[i],0] = vector_elements
             s+=dof[i]
         return vector
+    def vectorify_position(self, dictionary):
+        body_names = self.get_ordered_body_list()
+        dof = [self.joints[body_name].get_configuration().size for body_name in body_names]
+        N = sum(dof)
+        vector = np.matrix(np.zeros(shape=(N,1)))
+        s = 0
+        for i in range(len(body_names)):
+            body_name = body_names[i]
+            if body_name not in dictionary:
+                vector_elements = np.matrix(np.zeros(shape=(dof[i],1)))
+            else:
+                vector_elements = dictionary[body_names[i]]
+            vector[s:s+dof[i],0] = vector_elements
+            s+=dof[i]
+        return vector
+
     
     def matrixify(self, dictionary):
         body_names = self.get_ordered_body_list()
-        dof = [self.joints[body_name].get_number_degrees_of_freedom() for body_name in body_names]
+        dof = [self.joints[body_name].get_configuration_d().size for body_name in body_names]
         N = sum(dof)
         matrix = np.matrix(np.zeros(shape=(N,N)))
         s_i = 0
@@ -435,7 +451,7 @@ class Topology:
     
     def dictionarify(self, vector):
         body_names = self.get_ordered_body_list()
-        dof = {body_name: self.joints[body_name].get_number_degrees_of_freedom() for body_name in body_names}
+        dof = {body_name: self.joints[body_name].get_configuration_d().size for body_name in body_names}
         s = 0
         dictionary = {}
         for body_name in body_names:

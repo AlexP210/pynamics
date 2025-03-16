@@ -71,16 +71,16 @@ class Sim:
         # Initialize the states to track velocity & acceleration
         nonlinear_joint_space_forces = self.inverse_dynamics(
             joint_space_accelerations={
-                body_name: np.matrix(np.zeros((self.topology.joints[body_name].get_number_degrees_of_freedom()))).T
+                body_name: np.matrix(np.zeros((self.topology.joints[body_name].get_configuration_d().size))).T
                 for body_name in body_names
             }
         )
         return nonlinear_joint_space_forces
     
     def forward_dynamics(self, joint_space_forces:typing.Dict[str,np.matrix]) -> typing.Dict[str,np.matrix]:
-        C = self.topology.vectorify(self.get_nonlinear_forces())
+        C = self.topology.vectorify_velocity(self.get_nonlinear_forces())
         H = self.topology.matrixify(self.topology.get_mass_matrix())
-        tau = self.topology.vectorify(joint_space_forces)
+        tau = self.topology.vectorify_velocity(joint_space_forces)
         q_dd = np.linalg.inv(H) @ (tau - C)
         body_accelerations = self.topology.calculate_body_accelerations(q_dd)
         joint_space_accelerations = self.topology.dictionarify(q_dd)
@@ -97,12 +97,13 @@ class Sim:
         joint_space_velocities = self.topology.get_joint_space_velocities()
 
         for joint_name, joint in self.topology.joints.items():
-            for dof_idx in range(joint.get_number_degrees_of_freedom()):
+            for dof_idx in range(joint.get_configuration().size):
                 position_data_field = f"{joint_name} / Position {dof_idx}"
                 position_data = joint_space_positions[joint_name][dof_idx,0]
+                self._add_to_data(position_data_field, position_data)
+            for dof_idx in range(joint.get_configuration_d().size):
                 velocity_data_field = f"{joint_name} / Velocity {dof_idx}"
                 velocity_data = joint_space_velocities[joint_name][dof_idx,0]
-                self._add_to_data(position_data_field, position_data)
                 self._add_to_data(velocity_data_field, velocity_data)
         
         for body_dynamics_module_name, body_dynamics_module in self.body_dynamics.items():
@@ -121,30 +122,15 @@ class Sim:
         joint_space_forces = {}
         body_names = self.topology.get_ordered_body_list()
         for body_name in body_names[1:]:
-            q_shape = self.topology.joints[body_name].get_configuration().shape
+            q_shape = self.topology.joints[body_name].get_configuration_d().shape
             joint_space_forces[body_name] = np.matrix(np.zeros(shape=q_shape))
             for dynamics_module_name, dynamics_module in self.joint_dynamics.items():
                 joint_space_forces[body_name] += dynamics_module(self.topology, body_name)
         joint_space_accelerations = self.forward_dynamics(joint_space_forces)
         for body_name in body_names[1:]:
-
             A = joint_space_accelerations[body_name]
-            if len(self.joint_space_position_history) == 1:
-                xn = self.joint_space_position_history[0][body_name]
-                vn = self.joint_space_velocity_history[0][body_name]
-                xnplus1 = xn + vn*dt + 0.5*A*dt**2
-                vnplus1 = vn + A*dt
-            else:
-                xn = self.joint_space_position_history[-1][body_name]
-                xnminus1 = self.joint_space_position_history[-2][body_name]
-                xnplus1 = 2*xn - xnminus1 + A*dt**2
-                vnplus1 = (xnplus1 - xnminus1) / (2*dt)
-            # Update joint position
-            self.topology.joints[body_name].set_configuration(xnplus1)
-            # Update joint velocity
-            self.topology.joints[body_name].set_configuration_d(vnplus1)
-
-        # Update the velocities of each body based on the velocities of each joint
+            self.topology.joints[body_name].integrate(dt, A)
+        # Update the velocities of each body based on the new velocities of each joint
         self.topology.update_body_velocities()
         
         # Update the dynamics modules
@@ -157,6 +143,11 @@ class Sim:
         """
         Runs the simulation for delta_t more seconds.
         """
+        # Make sure velocities are updated
+        # If they're not, then body velocities will not be set;
+        # Any dynamics that uses body velocity will calculate with stale
+        # values on the first step
+        self.topology.update_body_velocities()
         if verbose:
             for _ in tqdm.tqdm(range(int(delta_t//dt+1))):
                 self.step(dt=dt)

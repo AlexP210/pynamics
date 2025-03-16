@@ -1,7 +1,7 @@
 import abc
 
 import numpy as np
-
+import quaternion
 import pyboatsim.math.linalg as linalg
 from pyboatsim.constants import EPSILON
 
@@ -32,8 +32,6 @@ class Joint(abc.ABC):
         self.q = configuration
     def set_configuration_d(self, configuration_d):
         self.q_d = configuration_d
-    def get_number_degrees_of_freedom(self):
-        return self.q.size
     def get_T(self):
         T = np.matrix(np.zeros(shape=(4,4)))
         C = self.get_rotation_matrix()
@@ -44,6 +42,10 @@ class Joint(abc.ABC):
             T[i,3] = R[i,0]
         T[3,3] = 1
         return T
+
+    def integrate(self, dt, q_dd):
+        self.q += (self.q_d + 0.5*q_dd*dt)*dt
+        self.q_d += q_dd*dt
 
 class RevoluteJoint(Joint):
     def __init__(self, axis:int):
@@ -85,16 +87,16 @@ class FreeJoint(Joint):
     def __init__(self):
         self.motion_subspace = np.matrix(np.eye(6,6))
         self.constraint_force_subspace = np.matrix(np.zeros(shape=(6,0)))
-        self.q = np.matrix(np.zeros(shape=(6,1)))
-        self.q_d = np.matrix(np.zeros(self.q.shape))
+        self.q = np.matrix(np.zeros(shape=(7,1)))
+        self.q_d = np.matrix(np.zeros(shape=(6,1)))
 
     def get_translation_vector(self):
-        r = self.q[3:,0]
+        r = self.q[4:,0]
         return self.get_rotation_matrix()@r
     def get_rotation_matrix(self):
-        rotation_angle = np.linalg.norm(self.q[:3,0])
+        rotation_angle = 2*np.atan2(np.linalg.norm(self.q[1:4,0]), self.q[0,0])
         if rotation_angle < EPSILON: return np.matrix(np.eye(3,3))
-        rotation_axis = self.q[:3,0] / rotation_angle
+        rotation_axis = self.q[1:4,0] / np.linalg.norm(self.q[1:4,0])
         c = np.cos(rotation_angle)
         s = np.sin(rotation_angle)
         C = 1-c
@@ -108,6 +110,22 @@ class FreeJoint(Joint):
         ])
     def get_c(self):
         return np.matrix(np.zeros(6)).T
+    def integrate(self, dt, q_dd):
+        # q_d & q_dd is 6 elements
+        new_q_d = self.q_d + q_dd * dt
+        average_q_d = 0.5*(self.q_d + new_q_d)
+        delta_rotation = quaternion.from_rotation_vector(average_q_d[:3,0].T*dt)
+        current_rotation = quaternion.from_float_array(self.q[:4,0].T)
+        new_rotation = quaternion.as_float_array(delta_rotation*current_rotation).T
+        new_position = self.q[4:,0] + average_q_d[3:,0]*dt
+        new_q = np.concat(
+            (new_rotation.astype(float), new_position.astype(float)),
+            axis=0
+        )
+        self.q_d = new_q_d
+        self.q = new_q
+
+
 
 class TranslationJoint(Joint):
     def __init__(self):
