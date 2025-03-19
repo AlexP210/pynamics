@@ -17,6 +17,9 @@ from pynamics.visualizer import Visualizer
 class TestDynamics(unittest.TestCase):
 
     def save_plot_artifact(self, time, value, expected_value, value_name, test_name):
+        if os.getenv("GITHUB_ACTIONS"):
+            return
+
         fig, ax = plt.subplots(1, 2)
 
         ax[0].scatter(time, value, s=5, label=f"Simulated {value_name}")
@@ -103,10 +106,11 @@ class TestDynamics(unittest.TestCase):
             },
         )
         sim.simulate(delta_t=5, dt=0.05)
-        visualizer.add_sim_data(sim)
-        visualizer.animate(
-            save_path=os.path.join(const.HOME, "tests", "test_buoyancy.mp4")
-        )
+        if not os.getenv("GITHUB_ACTIONS"):
+            visualizer.add_sim_data(sim)
+            visualizer.animate(
+                save_path=os.path.join(const.HOME, "tests", "test_buoyancy.mp4")
+            )
 
         t = np.array(sim.data_history["Time"])
         x = sim.data_history["Cube / Position 6"]
@@ -132,15 +136,14 @@ class TestDynamics(unittest.TestCase):
         topology.joints["Cube"].set_configuration(np.matrix([1, 0, 0, 0, 5, 0, 0]).T)
         sim = Sim(
             topology=topology,
-            body_dynamics={
-                "gravity": dynamics.Gravity(g=-9.81, body_names="Cube")
-            },
+            body_dynamics={"gravity": dynamics.Gravity(g=-9.81, body_names="Cube")},
         )
         sim.simulate(delta_t=5, dt=0.05)
-        visualizer.add_sim_data(sim)
-        visualizer.animate(
-            save_path=os.path.join(const.HOME, "tests", "test_gravity.mp4")
-        )
+        if not os.getenv("GITHUB_ACTIONS"):
+            visualizer.add_sim_data(sim)
+            visualizer.animate(
+                save_path=os.path.join(const.HOME, "tests", "test_gravity.mp4")
+            )
 
         t = np.array(sim.data_history["Time"])
         a = -9.81
@@ -183,8 +186,9 @@ class TestDynamics(unittest.TestCase):
             },
         )
         sim.simulate(delta_t=5, dt=0.05)
-        visualizer.add_sim_data(sim)
-        visualizer.animate(save_path=os.path.join(const.HOME, "tests", "test_drag.mp4"))
+        if not os.getenv("GITHUB_ACTIONS"):
+            visualizer.add_sim_data(sim)
+            visualizer.animate(save_path=os.path.join(const.HOME, "tests", "test_drag.mp4"))
 
         t = np.array(sim.data_history["Time"])
         # v_d = (-0.5 * density * C_d * A) / m * v^2
@@ -225,9 +229,10 @@ class TestDynamics(unittest.TestCase):
         )
         sim.simulate(delta_t=5, dt=0.01)
         visualizer.add_sim_data(sim)
-        visualizer.animate(
-            save_path=os.path.join(const.HOME, "tests", "test_spring.mp4")
-        )
+        if not os.getenv("GITHUB_ACTIONS"):
+            visualizer.animate(
+                save_path=os.path.join(const.HOME, "tests", "test_spring.mp4")
+            )
 
         t = np.array(sim.data_history["Time"])
         # x_dd = -(k/m)*(|x|-l)
