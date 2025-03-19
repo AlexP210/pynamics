@@ -133,6 +133,3 @@ robot.joints["Roll Body"].set_configuration(np.matrix([[np.pi/4]]))
 robot.joints["Pitch Body 1"].set_configuration(np.matrix([[np.pi/4]]))
 robot.joints["Pitch Body 2"].set_configuration(np.matrix([[np.pi/4]]))
 robot.joints["Yaw Body"].set_configuration(np.matrix([[np.pi/4]]))
-
-if __name__ == "__main__":
-    robot_sim = py
