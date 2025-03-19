@@ -3,12 +3,12 @@ import typing
 import numpy as np
 import trimesh
 
-from pyboatsim.dynamics import BodyDynamicsParent
-from pyboatsim import math
-from pyboatsim.constants import AXES, EPSILON
-from pyboatsim.kinematics.topology import Topology
+from pynamics.dynamics import BodyDynamicsParent
+from pynamics import math
+from pynamics.constants import AXES, EPSILON
+from pynamics.kinematics.topology import Topology
 
-from pyboatsim.math.linalg import R3_cross_product_matrix
+from pynamics.math.linalg import R3_cross_product_matrix
 
 class QuadraticDrag(BodyDynamicsParent):
     def __init__(

@@ -3,12 +3,12 @@ import os
 import numpy as np
 import trimesh
 
-from pyboatsim.dynamics import Gravity, Buoyancy, QuadraticDrag
-import pyboatsim.kinematics.topology as topo
-import pyboatsim.kinematics.joint as joint
-from pyboatsim.boatsim import Sim
-from pyboatsim.visualizer import Visualizer
-from pyboatsim.constants import HOME
+from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag
+import pynamics.kinematics.topology as topo
+import pynamics.kinematics.joint as joint
+from pynamics.boatsim import Sim
+from pynamics.visualizer import Visualizer
+from pynamics.constants import HOME
 
 if __name__ == "__main__":
 

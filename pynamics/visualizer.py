@@ -1,12 +1,12 @@
 import trimesh
 import numpy as np
-from pyboatsim.boatsim import Sim
-from pyboatsim.kinematics.topology import Topology, Body, Frame
-from pyboatsim.kinematics.joint import RevoluteJoint, FixedJoint
+from pynamics.boatsim import Sim
+from pynamics.kinematics.topology import Topology, Body, Frame
+from pynamics.kinematics.joint import RevoluteJoint, FixedJoint
 from mpl_toolkits.mplot3d import Axes3D, art3d
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from pyboatsim.constants import AXES, EPSILON
+from pynamics.constants import AXES, EPSILON
 import pandas as pd
 import tqdm as tqdm
 from mpl_toolkits.mplot3d import proj3d

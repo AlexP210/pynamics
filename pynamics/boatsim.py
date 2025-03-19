@@ -7,11 +7,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import tqdm as tqdm
 
-from pyboatsim.constants import HOME, AXES
-from pyboatsim.state import State
-from pyboatsim.dynamics import BodyDynamicsParent, JointDynamicsParent, Gravity, JointDamping
-from pyboatsim.math import linalg
-from pyboatsim.kinematics.topology import Topology, Frame, Body
+from pynamics.constants import HOME, AXES
+from pynamics.state import State
+from pynamics.dynamics import BodyDynamicsParent, JointDynamicsParent, Gravity, JointDamping
+from pynamics.math import linalg
+from pynamics.kinematics.topology import Topology, Frame, Body
 
 class Sim:
     def __init__(
@@ -169,7 +169,7 @@ class Sim:
             self.data_history[data_field_name] = [data_value,]
     
 if __name__ == "__main__":
-    from pyboatsim.example.example_topology import get_pendulum
+    from pynamics.example.example_topology import get_pendulum
 
     N = 1
     eps = 0.01

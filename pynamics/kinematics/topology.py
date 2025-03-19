@@ -2,9 +2,9 @@ import numpy as np
 import trimesh
 from enum import Enum
 import typing as types
-from pyboatsim.constants import EPSILON
-from pyboatsim.kinematics.joint import Joint, FixedJoint, RevoluteJoint
-import pyboatsim.math.linalg as linalg
+from pynamics.constants import EPSILON
+from pynamics.kinematics.joint import Joint, FixedJoint, RevoluteJoint
+import pynamics.math.linalg as linalg
 
 class Frame:
     def __init__(

@@ -3,12 +3,12 @@ import typing
 import numpy as np
 import trimesh
 
-from pyboatsim.dynamics import JointDynamicsParent
-from pyboatsim.state import State
-from pyboatsim.constants import AXES, EPSILON
-from pyboatsim.kinematics.topology import Topology
+from pynamics.dynamics import JointDynamicsParent
+from pynamics.state import State
+from pynamics.constants import AXES, EPSILON
+from pynamics.kinematics.topology import Topology
 
-from pyboatsim.math.linalg import R3_cross_product_matrix
+from pynamics.math.linalg import R3_cross_product_matrix
 
 class JointDamping(JointDynamicsParent):
     def __init__(

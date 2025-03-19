@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 import trimesh
 
-import pyboatsim.kinematics.topology as topo
-import pyboatsim.constants as const
+import pynamics.kinematics.topology as topo
+import pynamics.constants as const
 
 
 class TestTopology(unittest.TestCase):

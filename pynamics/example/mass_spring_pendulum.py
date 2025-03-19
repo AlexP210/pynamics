@@ -2,11 +2,11 @@ import numpy as np
 import trimesh
 import os
 
-from pyboatsim.dynamics import Gravity, JointDamping, Spring, RevoluteMotor
-import pyboatsim.kinematics.topology as topo
-import pyboatsim.kinematics.joint as joint
-from pyboatsim.boatsim import Sim
-from pyboatsim.visualizer import Visualizer
+from pynamics.dynamics import Gravity, JointDamping, Spring, RevoluteMotor
+import pynamics.kinematics.topology as topo
+import pynamics.kinematics.joint as joint
+from pynamics.boatsim import Sim
+from pynamics.visualizer import Visualizer
 
 if __name__ == "__main__":
 

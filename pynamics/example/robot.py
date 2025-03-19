@@ -2,9 +2,10 @@ import numpy as np
 import trimesh
 import tqdm
 
-from pyboatsim.kinematics.topology import Body, Frame, Topology
-from pyboatsim.kinematics.joint import RevoluteJoint, FreeJoint, FixedJoint
-from pyboatsim.visualizer import Visualizer
+from pynamics.kinematics.topology import Body, Frame, Topology
+from pynamics.kinematics.joint import RevoluteJoint, FreeJoint, FixedJoint
+from pynamics.visualizer import Visualizer
+from pynamics.boatsim import Sim
 
 body = Body(
     mass=1,
@@ -133,33 +134,5 @@ robot.joints["Pitch Body 1"].set_configuration(np.matrix([[np.pi/4]]))
 robot.joints["Pitch Body 2"].set_configuration(np.matrix([[np.pi/4]]))
 robot.joints["Yaw Body"].set_configuration(np.matrix([[np.pi/4]]))
 
-def get_pendulum(n):
-    pendulum_body = Body(
-        mass=1,
-        center_of_mass=np.matrix([1, 0, 0]).T,
-        inertia_matrix=np.matrix([
-            # Point mass
-            [0,0,0],
-            [0,0,0],
-            [0,0,0]
-        ])
-    )
-    end = Frame(
-        translation=np.matrix([1.0,0.0,0.0]).T, 
-    )
-    pendulum_body.add_frame(end, "Arm End")
-    pendulum = Topology()
-    pendulum.add_connection("World", "Identity", pendulum_body.copy(), "Arm 0", RevoluteJoint(1))
-    for i in range(1, n):
-        pendulum.add_connection(f"Arm {i-1}", "Arm End", pendulum_body.copy(), f"Arm {i}", RevoluteJoint(1))
-    pendulum_vis = Visualizer(
-        topology=pendulum,
-        visualization_models={
-            (f"Arm {i}", "Identity"): trimesh.load(
-                file_obj="/home/alex/Projects/PyBoAtSim/models/link/Link1m.obj", 
-                file_type="obj", 
-                force="mesh")
-            for i in range(n)
-        }
-    )
-    return pendulum, pendulum_vis
+if __name__ == "__main__":
+    robot_sim = py

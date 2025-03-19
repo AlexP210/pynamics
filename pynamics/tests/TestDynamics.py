@@ -6,12 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import trimesh
 
-import pyboatsim.kinematics.topology as topo
-import pyboatsim.kinematics.joint as joint
-import pyboatsim.dynamics as dynamics
-from pyboatsim.boatsim import Sim
-import pyboatsim.constants as const
-from pyboatsim.visualizer import Visualizer
+import pynamics.kinematics.topology as topo
+import pynamics.kinematics.joint as joint
+import pynamics.dynamics as dynamics
+from pynamics.boatsim import Sim
+import pynamics.constants as const
+from pynamics.visualizer import Visualizer
 
 
 class TestDynamics(unittest.TestCase):
@@ -132,7 +132,7 @@ class TestDynamics(unittest.TestCase):
                 )
             }
         )
-        sim.simulate(delta_t=5, dt=0.01)
+        sim.simulate(delta_t=5, dt=0.05)
         visualizer.add_sim_data(sim)
         visualizer.animate(
             save_path=os.path.join(const.HOME, "tests", "test_gravity.mp4")
@@ -212,7 +212,7 @@ class TestDynamics(unittest.TestCase):
                 )
             }
         )
-        sim.simulate(delta_t=5, dt=0.05)
+        sim.simulate(delta_t=5, dt=0.01)
         visualizer.add_sim_data(sim)
         visualizer.animate(
             save_path=os.path.join(const.HOME, "tests", "test_spring.mp4")

@@ -4,11 +4,11 @@ import os
 
 import matplotlib.pyplot as plt
 
-from pyboatsim.dynamics import Gravity, Buoyancy, QuadraticDrag, RevoluteMotor, JointDamping
-import pyboatsim.kinematics.topology as topo
-import pyboatsim.kinematics.joint as joint
-from pyboatsim.boatsim import Sim
-from pyboatsim.visualizer import Visualizer
+from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag, RevoluteMotor, JointDamping
+import pynamics.kinematics.topology as topo
+import pynamics.kinematics.joint as joint
+from pynamics.boatsim import Sim
+from pynamics.visualizer import Visualizer
 
 if __name__ == "__main__":
 

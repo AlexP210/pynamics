@@ -1,7 +1,7 @@
 [project]
-name = "pyboatsim"
+name = "pynamics"
 version = "0.1.0"
-description = "A simple python-based simulator for the Bo-At project"
+description = "A simple, pure python multibody dynamics simulator"
 
 [tool.setuptools]
-py-modules = ["pyboatsim"]
+py-modules = ["pynamics"]

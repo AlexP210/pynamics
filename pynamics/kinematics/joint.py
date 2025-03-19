@@ -2,9 +2,9 @@ import abc
 
 import numpy as np
 import quaternion
-import pyboatsim.math.linalg as linalg
-from pyboatsim.math.integrators import VerletIntegrator, ForwardEulerQuaternionIntegrator
-from pyboatsim.constants import EPSILON
+import pynamics.math.linalg as linalg
+from pynamics.math.integrators import VerletIntegrator, ForwardEulerQuaternionIntegrator
+from pynamics.constants import EPSILON
 
 class Joint(abc.ABC):
     

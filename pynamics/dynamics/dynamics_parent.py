@@ -2,8 +2,8 @@ import typing
 import abc
 import numpy as np
 
-from pyboatsim.kinematics.topology import Topology
-from pyboatsim.math.linalg import R3_cross_product_matrix
+from pynamics.kinematics.topology import Topology
+from pynamics.math.linalg import R3_cross_product_matrix
 
 class BodyDynamicsParent(abc.ABC):
     def __init__(self, body_names:typing.List[str]=[]):

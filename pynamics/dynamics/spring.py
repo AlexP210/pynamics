@@ -3,10 +3,10 @@ import typing
 import numpy as np
 import trimesh
 
-from pyboatsim.dynamics import BodyDynamicsParent
-from pyboatsim.state import State
-from pyboatsim.constants import AXES, EPSILON
-from pyboatsim.kinematics.topology import Topology
+from pynamics.dynamics import BodyDynamicsParent
+from pynamics.state import State
+from pynamics.constants import AXES, EPSILON
+from pynamics.kinematics.topology import Topology
 
 class Spring(BodyDynamicsParent):
     def __init__(

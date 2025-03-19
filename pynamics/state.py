@@ -1,7 +1,7 @@
 import typing
 import pandas as pd
 
-from pyboatsim.kinematics.topology import Topology
+from pynamics.kinematics.topology import Topology
 
 class State:
     """
