@@ -148,6 +148,10 @@ class Sim:
         # Any dynamics that uses body velocity will calculate with stale
         # values on the first step
         self.topology.update_body_velocities()
+        # Initialize the integrators with the current joint velocities
+        for joint_name, joint in self.topology.joints.items():
+            joint.initialize_integrator()
+
         if verbose:
             for _ in tqdm.tqdm(range(int(delta_t//dt+1))):
                 self.step(dt=dt)

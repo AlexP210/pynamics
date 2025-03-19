@@ -3,6 +3,7 @@ import abc
 import numpy as np
 import quaternion
 import pyboatsim.math.linalg as linalg
+from pyboatsim.math.integrators import VerletIntegrator, ForwardEulerQuaternionIntegrator
 from pyboatsim.constants import EPSILON
 
 class Joint(abc.ABC):
@@ -44,8 +45,10 @@ class Joint(abc.ABC):
         return T
 
     def integrate(self, dt, q_dd):
-        self.q += (self.q_d + 0.5*q_dd*dt)*dt
-        self.q_d += q_dd*dt
+        self.q, self.q_d = self.integrator.step(dt, q_dd)
+
+    def initialize_integrator(self):
+        self.integrator.initialize_state(self.q, self.q_d)
 
 class RevoluteJoint(Joint):
     def __init__(self, axis:int):
@@ -61,6 +64,7 @@ class RevoluteJoint(Joint):
             temp += 1
         self.q = np.matrix(np.zeros(1)).T
         self.q_d = np.matrix(np.zeros(self.q.shape)).T
+        self.integrator = VerletIntegrator()
         
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3,1)))
@@ -88,7 +92,10 @@ class FreeJoint(Joint):
         self.motion_subspace = np.matrix(np.eye(6,6))
         self.constraint_force_subspace = np.matrix(np.zeros(shape=(6,0)))
         self.q = np.matrix(np.zeros(shape=(7,1)))
+        self.q[0] = 1
         self.q_d = np.matrix(np.zeros(shape=(6,1)))
+        self.position_integrator = VerletIntegrator()
+        self.orientation_integrator = ForwardEulerQuaternionIntegrator()
 
     def get_translation_vector(self):
         r = self.q[4:,0]
@@ -110,20 +117,22 @@ class FreeJoint(Joint):
         ])
     def get_c(self):
         return np.matrix(np.zeros(6)).T
+    
+    def initialize_integrator(self):
+        orientation = self.q[:4]
+        position = self.q[4:]
+        orientation_d = self.q_d[:3]
+        position_d = self.q_d[3:]
+        self.position_integrator.initialize_state(position, position_d)
+        self.orientation_integrator.initialize_state(orientation, orientation_d)
+    
     def integrate(self, dt, q_dd):
-        # q_d & q_dd is 6 elements
-        new_q_d = self.q_d + q_dd * dt
-        average_q_d = 0.5*(self.q_d + new_q_d)
-        delta_rotation = quaternion.from_rotation_vector(average_q_d[:3,0].T*dt)
-        current_rotation = quaternion.from_float_array(self.q[:4,0].T)
-        new_rotation = quaternion.as_float_array(delta_rotation*current_rotation).T
-        new_position = self.q[4:,0] + average_q_d[3:,0]*dt
-        new_q = np.concat(
-            (new_rotation.astype(float), new_position.astype(float)),
-            axis=0
-        )
-        self.q_d = new_q_d
-        self.q = new_q
+        orientation_dd = q_dd[:3]
+        position_dd = q_dd[3:]
+        position, position_d = self.position_integrator.step(dt, position_dd)
+        orientation, orientation_d = self.orientation_integrator.step(dt, orientation_dd)
+        self.q = np.concatenate((orientation.astype(float), position.astype(float)), axis=0)
+        self.q_d = np.concatenate((orientation_d.astype(float), position_d.astype(float)), axis=0)
 
 
 
@@ -139,6 +148,7 @@ class TranslationJoint(Joint):
         ))
         self.q = np.matrix(np.zeros(shape=(3,1)))
         self.q_d = np.matrix(np.zeros(self.q.shape))
+        self.integrator = VerletIntegrator()
     def get_translation_vector(self):
         r = self.q
         return r
@@ -154,6 +164,7 @@ class FixedJoint(Joint):
         self.constraint_force_subspace = np.matrix(np.eye(6,6))
         self.q = np.matrix(np.zeros(shape=(0,1)))
         self.q_d = np.matrix(np.zeros(self.q.shape))
+        self.integrator = VerletIntegrator()
         
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3,1)))

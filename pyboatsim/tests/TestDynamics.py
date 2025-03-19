@@ -19,13 +19,13 @@ class TestDynamics(unittest.TestCase):
     def save_plot_artifact(self, time, value, expected_value, value_name, test_name):
         fig, ax = plt.subplots(1, 2)
 
-        ax[0].scatter(time, value, label=f"Simulated {value_name}")
-        ax[0].scatter(time, expected_value, label=f"Expected {value_name}")
+        ax[0].scatter(time, value, s=5, label=f"Simulated {value_name}")
+        ax[0].scatter(time, expected_value, s=5, label=f"Expected {value_name}")
         ax[0].set_xlabel("Time")
         ax[0].set_ylabel(value_name)
         ax[0].legend()
 
-        ax[1].scatter(time, value - expected_value, c="k", label=f"{value_name} Error")
+        ax[1].scatter(time, value - expected_value, c="k", s=5, label=f"{value_name} Error")
         ax[1].hlines(
             y=[-const.EPSILON, const.EPSILON],
             xmin=time[0], xmax=time[-1],
@@ -97,7 +97,7 @@ class TestDynamics(unittest.TestCase):
                 )
             }
         )
-        sim.simulate(delta_t=5, dt=0.005)   
+        sim.simulate(delta_t=5, dt=0.05)   
         visualizer.add_sim_data(sim)
         visualizer.animate(
             save_path=os.path.join(const.HOME, "tests", "test_buoyancy.mp4")
@@ -120,7 +120,8 @@ class TestDynamics(unittest.TestCase):
     def test_gravity(self):
         warnings.filterwarnings("ignore", category=PendingDeprecationWarning) 
         topology, visualizer = self.make_free_cube_topology()
-        topology.joints["Cube"].set_configuration(np.matrix([1,0,0,0,5,0,0]).T)
+        # topology.joints["Cube"].set_configuration(np.matrix([1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),5,0,0]).T)
+        topology.joints["Cube"].set_configuration(np.matrix([1, 0, 0, 0, 5, 0, 0]).T)
         sim = Sim(
             topology=topology,
             body_dynamics={
@@ -131,7 +132,7 @@ class TestDynamics(unittest.TestCase):
                 )
             }
         )
-        sim.simulate(delta_t=5, dt=0.05, )
+        sim.simulate(delta_t=5, dt=0.01)
         visualizer.add_sim_data(sim)
         visualizer.animate(
             save_path=os.path.join(const.HOME, "tests", "test_gravity.mp4")
@@ -172,7 +173,7 @@ class TestDynamics(unittest.TestCase):
                 )
             }
         )
-        sim.simulate(delta_t=5, dt=0.01)
+        sim.simulate(delta_t=5, dt=0.05)
         visualizer.add_sim_data(sim)
         visualizer.animate(
             save_path=os.path.join(const.HOME, "tests", "test_drag.mp4")
@@ -207,7 +208,7 @@ class TestDynamics(unittest.TestCase):
                 "spring": dynamics.Spring(
                     body1="World", frame1="Identity",
                     body2="Cube", frame2="Identity",
-                    stiffness=10*topology.bodies["Cube"].mass
+                    stiffness=topology.bodies["Cube"].mass
                 )
             }
         )
@@ -226,7 +227,7 @@ class TestDynamics(unittest.TestCase):
         # => x(0) = B = 0
         # => x_d(0) = A*sqrt(k/m) => A = x_d(0)/omega * x_d(0)
         m = sim.topology.bodies["Cube"].mass
-        k = 10*m
+        k = m
         omega = np.sqrt(k/m)
         x_expected = (-0.1/omega) * np.sin(omega*t)
         x = sim.data_history[f"Cube / Position 6"]
@@ -235,7 +236,6 @@ class TestDynamics(unittest.TestCase):
             time=t, value=x, expected_value=x_expected,
             value_name="Z Position", test_name="test_spring"
         )
-
 
         self.assertTrue(
             (abs(x - x_expected) < const.EPSILON).all(),
