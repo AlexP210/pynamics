@@ -1,6 +1,7 @@
-from pyboatsim.dynamics.dynamics_parent import DynamicsParent
-from pyboatsim.dynamics.bodydrag import SimpleBodyDrag, MeshBodyDrag
-from pyboatsim.dynamics.waterwheel import WaterWheel
-from pyboatsim.dynamics.constant_force import ConstantForce
-from pyboatsim.dynamics.buoyancy import MeshBuoyancy
-from pyboatsim.dynamics.gravity import MeshGravity
+from pyboatsim.dynamics.dynamics_parent import BodyDynamicsParent, JointDynamicsParent
+from pyboatsim.dynamics.gravity import Gravity
+from pyboatsim.dynamics.joint_damping import JointDamping
+from pyboatsim.dynamics.spring import Spring
+from pyboatsim.dynamics.revolute_motor import RevoluteMotor
+from pyboatsim.dynamics.buoyancy import Buoyancy
+from pyboatsim.dynamics.quadratic_drag import QuadraticDrag
