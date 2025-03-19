@@ -1,6 +1,5 @@
 **/__pycache__
-PyBoAtSim-Env
-pyboatsim.egg-info
+pynamics.egg-info
 .*
 **/*.png
 **/*.csv
