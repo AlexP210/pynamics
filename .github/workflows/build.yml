@@ -42,7 +42,7 @@ jobs:
         python-version: "3.13"
     - name: Install dependencies
       run: |
-        pip install flake8 genbadge[all] 
+        pip install flake8 genbadge[all] coverage
     - name: Generate coverage
       run: |
         python -m coverage report -m --skip-covered
