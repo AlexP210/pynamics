@@ -33,4 +33,5 @@ jobs:
         coverage run -m unittest
         python -m coverage report -m --skip-covered
         python -m coverage html -d .coverage_html
-        genbadge coverage --input-file .coverage_html
+        python -m coverage xml -o .coverage.xml
+        genbadge coverage --input-file .coverage.xml
