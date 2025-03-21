@@ -9,10 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-
+  tests:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python 3.13
@@ -22,7 +20,6 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -33,3 +30,23 @@ jobs:
     - name: Test with unittest
       run: |
         coverage run -m unittest
+
+  coverage:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.13"
+    - name: Install dependencies
+      run: |
+        pip install flake8 genbadge[all] 
+    - name: Generate coverage
+      run: |
+        python -m coverage report -m --skip-covered
+        python -m coverage html -d .coverage_html
+        genbadge coverage --input-file .coverage_html
+  
+
