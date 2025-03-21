@@ -20,6 +20,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install flake8 genbadge[all] coverage
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -32,5 +33,4 @@ jobs:
         coverage run -m unittest
         python -m coverage report -m --skip-covered
         python -m coverage html -d .coverage_html
-        genbadge coverage --input-file .coverage_html  
-
+        genbadge coverage --input-file .coverage_html
