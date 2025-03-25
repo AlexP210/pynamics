@@ -30,8 +30,9 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with unittest
       run: |
-        mv .coverage.xml .coverage_committed.xml
-        source generate_coverage.sh
+        coverage report > coverage_committed.txt
+        coverage run -m unittest
     - name: Compare coverage
       run: |
-        diff .coverage_committed.xml .coverage.xml
+        coverage report > coverage_check.txt
+        diff coverage_committed.txt coverage_check.txt
