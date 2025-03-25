@@ -5,3 +5,5 @@ pynamics.egg-info
 **/*.png
 **/*.csv
 **.mp4
+.coverage*
+!.coverage.xml
