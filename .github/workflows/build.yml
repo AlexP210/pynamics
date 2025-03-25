@@ -30,13 +30,9 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with unittest
       run: |
+        python -m coverage xml -o .coverage_committed.xml
         coverage run -m unittest
-        python -m coverage report -m --skip-covered
-        python -m coverage html -d .coverage_html
         python -m coverage xml -o .coverage.xml
-        genbadge coverage --input-file .coverage.xml -o .coverage-badge.svg
-        git config --global user.name 'AlexP210'
-        git config --global user.email 'AlexP210@users.noreply.github.com'
-        git add .coverage.xml .coverage-badge.svg
-        git commit --amend --no-edit
-        git push --force-with-lease
+    - name: Compare coverage
+      run: |
+        diff .coverage_committed.xml .coverage.xml
