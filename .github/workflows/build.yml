@@ -37,5 +37,6 @@ jobs:
         genbadge coverage --input-file .coverage.xml -o .coverage-badge.svg
         git config --global user.name 'AlexP210'
         git config --global user.email 'AlexP210@users.noreply.github.com'
-        git commit -am "Coverage Report"
+        git add .coverage.xml .coverage-badge.svg
+        git commit -m "Coverage Report"
         git push
