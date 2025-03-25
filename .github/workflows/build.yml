@@ -38,5 +38,5 @@ jobs:
         git config --global user.name 'AlexP210'
         git config --global user.email 'AlexP210@users.noreply.github.com'
         git add .coverage.xml .coverage-badge.svg
-        git commit --amend
-        git push -force-with-lease
+        git commit --amend --no-edit
+        git push --force-with-lease
