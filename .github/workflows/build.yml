@@ -31,6 +31,7 @@ jobs:
     - name: Test with unittest
       run: |
         python -m coverage xml -o .coverage_committed.xml
+        rm .coverage
         coverage run -m unittest
         python -m coverage xml -o .coverage.xml
     - name: Compare coverage
