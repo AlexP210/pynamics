@@ -1,0 +1,7 @@
+**/__pycache__
+pynamics.egg-info
+.vscode
+!.github
+**/*.png
+**/*.csv
+**.mp4
