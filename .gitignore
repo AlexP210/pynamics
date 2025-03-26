@@ -1,6 +1,6 @@
 **/__pycache__
 pynamics.egg-info
-.*
+.vscode
 **/*.png
 **/*.csv
 **.mp4
