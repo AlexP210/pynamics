@@ -1,0 +1,5 @@
+pynamics
+========
+
+.. automodule:: pynamics
+    :members:
