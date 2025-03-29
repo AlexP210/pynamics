@@ -10,7 +10,7 @@ Welcome to the pynamics documentation!
 
 Pynamics is a multi-rigid-body dynamics simulator written purely in Python. Its
 goal is to provide an easy-to-use, easy-to-extend framework for simulating arbitrary
-kinematic trees.
+kinematic trees. All units in pynamics are standard SI.
 
 Check below for instructions on how to install & use pynamics, along with detailed
 API documentation.
@@ -19,5 +19,5 @@ API documentation.
    :maxdepth: 1
 
    Installation
-   Usage
+   tutorial/Tutorial.rst
    API

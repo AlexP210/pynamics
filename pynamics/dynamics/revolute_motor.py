@@ -1,3 +1,7 @@
+"""
+Module implementing a Dynamics source representing a simple DC motor.
+"""
+
 import typing
 
 import numpy as np

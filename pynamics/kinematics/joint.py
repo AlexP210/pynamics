@@ -5,14 +5,12 @@ Module containing the definition of all available joints.
 import abc
 
 import numpy as np
-import quaternion
-import pynamics.math.linalg as linalg
 from pynamics.math.integrators import VerletIntegrator, ForwardEulerQuaternionIntegrator
 from pynamics.constants import EPSILON
 
 
 class Joint(abc.ABC):
-
+    """Abstract base class defining the :code:`Joint` interface"""
     @abc.abstractmethod
     def __init__(self):
         pass
@@ -144,7 +142,18 @@ class Joint(abc.ABC):
 
 
 class RevoluteJoint(Joint):
-    """A joint that revolves freely around an axis."""
+    """
+    A joint that revolves freely around an axis.
+    
+    .. note::
+
+        The joint-space configuration q = [\theta,] represents the rotation angle,
+        about the joint axis.
+
+        The joint-space velocity \dot{q} = [\dot{\theta},] represents
+        the rate of change of the rotation angle about the joint axis.
+    
+    """
     def __init__(self, axis: int):
         """
         Create a revolute joint.
@@ -193,7 +202,21 @@ class RevoluteJoint(Joint):
 
 
 class FreeJoint(Joint):
-    """A joint which is not constrained on any axis."""
+    """
+    A joint which is not constrained on any axis.
+
+    .. note::
+
+        The joint-space configuration q = [q_w, q_x, q_y, q_z, r_x, r_y, r_z]
+        represents the concatenation of the orientation quaternion from the
+        parent frame to the child frame (with real component first), and the 
+        parent->child translation vector, expressed in the child frame.
+
+        The joint-space velocity \dot{q} = [w_x, w_y, w_z, v_x, v_y, v_z] 
+        represents the spatial velocity across the joint, with angular component
+        first.  
+    
+    """
     def __init__(self):
         """
         Create a free joint.
@@ -256,7 +279,19 @@ class FreeJoint(Joint):
 
 
 class TranslationJoint(Joint):
-    """A joint which can slide freely along any axis, but not rotate."""
+    """
+    A joint which can slide freely along any axis, but not rotate.
+    
+    .. note::
+
+        The joint-space configuration q = [r_x, r_y, r_z] represents the x, y, z components
+        of the parent->child frame translation, expressed in the child frame.
+
+        The joint-space velocity \dot{q} = [v_x, v_y, v_z] represents
+        the x, y, z components of the velocity of the child relative to the
+        parent, expressed in the child frame.
+
+    """
     def __init__(self):
         """
         Create a translational joint.
@@ -283,7 +318,16 @@ class TranslationJoint(Joint):
 
 
 class FixedJoint(Joint):
-    """A joint which is constrained on every axis."""
+    """
+    A joint which is constrained on every axis.
+    
+    .. note::
+
+        The joint-space configuration q = [] is empty, as there are no degrees of freedom.
+
+        The joint-space velocity \dot{q} = [] is empty, as there are no degrees of freedom.
+    
+    """
     def __init__(self):
         """
         Create a fixed joint.

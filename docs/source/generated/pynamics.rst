@@ -1,6 +1,0 @@
-﻿pynamics
-========
-
-.. automodule:: pynamics
-
-   

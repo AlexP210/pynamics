@@ -30,7 +30,8 @@ class Sim:
         body_dynamics: typing.Dict[str, BodyDynamicsParent] = None,
         joint_dynamics: typing.Dict[str, JointDynamicsParent] = None,
     ) -> None:
-        """Initialize a `Sim`ulation.
+        """
+        Initialize a `Sim`-ulation.
 
         Args:
             topology (Topology): A Topology object representing the initial condition.
@@ -48,7 +49,7 @@ class Sim:
         self.topology: Topology = topology
         self.joint_space_position_history = []
         self.joint_space_velocity_history = []
-        self.data_history: typing.Dict[str: typing.List[float]] = {}
+        self.data_history: typing.Dict[str : typing.List[float]] = {}
         self._data_collection_callbacks: typing.List[
             typing.Callable[[Sim], typing.Dict[str, float]]
         ] = []

@@ -1,3 +1,7 @@
+"""
+Module implementing a Dynamics source representing joint space viscuous friction.
+"""
+
 import typing
 
 import numpy as np

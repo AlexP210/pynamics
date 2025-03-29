@@ -2,7 +2,11 @@ API
 ===
 
 .. autosummary::
-   :toctree: generated
+   :toctree: _autosummary
    :recursive:
 
-   pynamics
+   pynamics.kinematics
+   pynamics.dynamics
+   pynamics.sim
+   pynamics.visualizer
+   pynamics.math

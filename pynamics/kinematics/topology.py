@@ -4,10 +4,8 @@ Module containing the definition of a `Topology`, `Body`, and `Frame`.
 
 import numpy as np
 import trimesh
-from enum import Enum
 import typing
-from pynamics.constants import EPSILON
-from pynamics.kinematics.joint import Joint, FixedJoint, RevoluteJoint
+from pynamics.kinematics.joint import Joint, FixedJoint
 import pynamics.math.linalg as linalg
 
 
@@ -206,11 +204,6 @@ class Topology:
         self.mass = None
         self.center_of_mass = None
         self.inertia_tensor = None
-
-        # Initialize the mass properties
-        self.get_mass()
-        self.get_center_of_mass()
-        self.get_inertia_tensor()
 
     def add_frame(self, body_name: str, frame: Frame, frame_name: str):
         """
