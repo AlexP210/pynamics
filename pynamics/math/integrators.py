@@ -1,24 +1,40 @@
+"""Module containing definition of various classes for performing integration."""
 import abc
 import quaternion
+import numpy as np
 
 
 class Integrator(abc.ABC):
-
+    """Base class for integrators"""
     @abc.abstractmethod
     def __init__(self):
         pass
 
-    def initialize_state(self, initial_position_state, initial_velocity_state):
+    def initialize_state(self, initial_position_state:np.matrix, initial_velocity_state:np.matrix):
+        """
+        Initialize the state to integrate from.
+
+        Args:
+            initial_position_state (np.matrix): The initial position.
+            initial_velocity_state (np.matrix): THe initial velocity.
+        """
         self.position_state = initial_position_state
         self.velocity_state = initial_velocity_state
 
     @abc.abstractmethod
-    def step(self, dt, acceleration):
+    def step(self, dt:float, acceleration:np.matrix):
+        """
+        Step the integrator.
+
+        Args:
+            dt (float): Timestep to step the integrator by.
+            acceleration (np.matrix): Acceleration to apply.
+        """
         pass
 
 
 class VerletIntegrator(Integrator):
-
+    """Class for performing Verlet Integration"""
     def __init__(self):
         self.position_state_history = []
         self.velocity_state_history = []
@@ -53,7 +69,7 @@ class VerletIntegrator(Integrator):
 
 
 class ForwardEulerQuaternionIntegrator(Integrator):
-
+    """Class for performing Forward Euler integration on quaternions."""
     def __init__(self):
         pass
 

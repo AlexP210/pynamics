@@ -1,3 +1,7 @@
+"""
+This module contains the definition of classes that apply forces to kinematic trees.
+"""
+
 from pynamics.dynamics.dynamics_parent import BodyDynamicsParent, JointDynamicsParent
 from pynamics.dynamics.gravity import Gravity
 from pynamics.dynamics.joint_damping import JointDamping

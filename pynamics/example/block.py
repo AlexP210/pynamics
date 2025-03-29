@@ -6,7 +6,7 @@ import trimesh
 from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag
 import pynamics.kinematics.topology as topo
 import pynamics.kinematics.joint as joint
-from pynamics.boatsim import Sim
+from pynamics.sim import Sim
 from pynamics.visualizer import Visualizer
 from pynamics.constants import HOME
 
@@ -39,13 +39,13 @@ if __name__ == "__main__":
 
     water_world_sim = Sim(
         topology=water_world,
-        body_dynamics={"gravity": Gravity(-9.81, 2, body_names=["Block"])},
+        body_dynamics={"gravity": Gravity(g=-9.81, body_names=["Block"])},
     )
 
     water_world_sim.simulate(delta_t=5, dt=0.01, verbose=True)
     water_world_sim.save_data("Block_Test.csv")
-    water_world_vis.add_sim_data(water_world_sim)
-    water_world_vis.animate(
-        save_path="Block_Test.mp4", 
-        verbose=True)
+    # water_world_vis.add_sim_data(water_world_sim)
+    # water_world_vis.animate(
+    #     save_path="Block_Test.mp4", 
+    #     verbose=True)
 

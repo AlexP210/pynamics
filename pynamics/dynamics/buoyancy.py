@@ -1,3 +1,5 @@
+""" Module implementing a Dynamics source representing buoyancy. """
+
 import typing
 
 import numpy as np

@@ -6,6 +6,7 @@ import numpy as np
 import trimesh
 
 import pynamics.kinematics.topology as topo
+import pynamics.kinematics.joint as joint
 import pynamics.constants as const
 
 
@@ -46,7 +47,7 @@ class TestTopology(unittest.TestCase):
             parent_frame_name="Identity",
             child_body=self.body.copy(),
             child_body_name=f"Body0",
-            joint=topo.RevoluteJoint(axis=0)
+            joint=joint.RevoluteJoint(axis=0)
         )
         for i in range(1, 4):
             topology.add_connection(
@@ -54,7 +55,7 @@ class TestTopology(unittest.TestCase):
                 parent_frame_name="Attachment Point",
                 child_body=self.body.copy(),
                 child_body_name=f"Body{i}",
-                joint=topo.RevoluteJoint(axis=0)
+                joint=joint.RevoluteJoint(axis=0)
             )
         return topology
 

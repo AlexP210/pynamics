@@ -1,3 +1,7 @@
+"""
+Module implementing a Dynamics source representing a spring.
+"""
+
 import typing
 
 import numpy as np
