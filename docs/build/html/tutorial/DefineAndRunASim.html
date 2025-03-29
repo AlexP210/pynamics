@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Define and Run a Sim &#8212; pynamics 0.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=7026087e"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Analyze a Sim" href="AnalyzeASim.html" />
+    <link rel="prev" title="Initialize a Topology" href="InitializeATopology.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="define-and-run-a-sim">
+<h1>Define and Run a <code class="code docutils literal notranslate"><span class="pre">Sim</span></code><a class="headerlink" href="#define-and-run-a-sim" title="Link to this heading">¶</a></h1>
+<p>To define a <code class="code docutils literal notranslate"><span class="pre">Sim</span></code>, you need to provide a <code class="code docutils literal notranslate"><span class="pre">Topology</span></code>, and the dynamics
+modules that will apply forces to the <code class="code docutils literal notranslate"><span class="pre">Topology</span></code>.</p>
+<p>Dynamics Modules can be one of two types:</p>
+<p>1. <code class="code docutils literal notranslate"><span class="pre">BodyDynamics</span></code>: Dynamics modules that compute cartesian force wrenches
+to act on bodies, expressed in each body’s Identity frame.
+2. <code class="code docutils literal notranslate"><span class="pre">JointDynamics</span></code>: Dynamics modules that compute joint-space forces to
+act across each <code class="code docutils literal notranslate"><span class="pre">Joint</span></code>, expressed in the child frame of each <code class="code docutils literal notranslate"><span class="pre">Joint</span></code>.</p>
+<p>Pynamics comes with some pre-made Dynamics Modules. For a list, see
+<a class="reference internal" href="../_autosummary/pynamics.dynamics.html"><span class="doc">pynamics.dynamics</span></a>.</p>
+<p>The code below combines our <code class="code docutils literal notranslate"><span class="pre">Topology</span></code> object from the previous page,
+with three BodyDynamics modules, to initialize a <code class="code docutils literal notranslate"><span class="pre">Sim</span></code>. The first is a
+<code class="code docutils literal notranslate"><span class="pre">Spring</span></code> module, pulling the “Cube“‘s “Identity” frame to “World“‘s “Identity”
+frame, and the second is a <code class="code docutils literal notranslate"><span class="pre">QuadraticDrag</span></code> module to mimim the effect
+of air resistance on the <code class="code docutils literal notranslate"><span class="pre">Cube</span></code> body as it bounces around, and the third
+is a <code class="code docutils literal notranslate"><span class="pre">Gravity</span></code> module.</p>
+<p>Note that the <code class="code docutils literal notranslate"><span class="pre">BodyDynamics</span></code> modules are provided as a dictionary, so
+we can index the added Dynamics Modules by a unique string identifier.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pynamics.sim</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pynamics.dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gravity</span><span class="p">,</span> <span class="n">Buoyancy</span><span class="p">,</span> <span class="n">QuadraticDrag</span>
+
+<span class="n">simulation</span> <span class="o">=</span> <span class="n">Sim</span><span class="p">(</span>
+    <span class="n">topology</span><span class="o">=</span><span class="n">topology</span><span class="p">,</span>
+    <span class="n">body_dynamics</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;gravity&quot;</span><span class="p">:</span> <span class="n">Gravity</span><span class="p">(</span>
+            <span class="n">g</span><span class="o">=-</span><span class="mf">9.81</span><span class="p">,</span>
+            <span class="n">direction</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">matrix</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+            <span class="n">body_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Cube&quot;</span><span class="p">,]</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;spring&quot;</span><span class="p">:</span> <span class="n">Spring</span><span class="p">(</span>
+            <span class="n">body1</span><span class="o">=</span><span class="s2">&quot;World&quot;</span><span class="p">,</span> <span class="n">frame1</span><span class="o">=</span><span class="s2">&quot;Identity&quot;</span><span class="p">,</span>
+            <span class="n">body2</span><span class="o">=</span><span class="s2">&quot;Cube&quot;</span><span class="p">,</span> <span class="n">frame2</span><span class="o">=</span><span class="s2">&quot;Corner&quot;</span><span class="p">,</span>
+            <span class="n">stiffness</span><span class="o">=</span><span class="mi">800</span>
+        <span class="p">),</span>
+        <span class="s2">&quot;drag&quot;</span><span class="p">:</span> <span class="n">QuadraticDrag</span><span class="p">(</span>
+            <span class="n">drag_models</span><span class="p">:</span> <span class="n">trimesh</span><span class="o">.</span><span class="n">load</span><span class="p">(</span>
+                <span class="n">file_obj</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;pynamics&quot;</span><span class="p">,</span> <span class="s2">&quot;models&quot;</span><span class="p">,</span> <span class="s2">&quot;common&quot;</span><span class="p">,</span> <span class="s2">&quot;Cube.obj&quot;</span><span class="p">),</span>
+                <span class="n">file_type</span><span class="o">=</span><span class="s2">&quot;obj&quot;</span><span class="p">,</span>
+                <span class="n">force</span><span class="o">=</span><span class="s2">&quot;mesh&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">surface_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matrix</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">])</span><span class="o">.</span><span class="n">T</span><span class="p">,</span>
+            <span class="n">fluid_density</span> <span class="o">=</span> <span class="mf">1.293</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="n">simulation</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="n">delta_t</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">pynamics</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../Installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="Tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../API.html">API</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="Tutorial.html">Tutorial</a><ul>
+      <li>Previous: <a href="InitializeATopology.html" title="previous chapter">Initialize a <code class="code docutils literal notranslate"><span class="pre">Topology</span></code></a></li>
+      <li>Next: <a href="AnalyzeASim.html" title="next chapter">Analyze a <code class="code docutils literal notranslate"><span class="pre">Sim</span></code></a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Alex Pleava.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/tutorial/DefineAndRunASim.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

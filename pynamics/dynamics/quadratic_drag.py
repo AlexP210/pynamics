@@ -1,3 +1,7 @@
+"""
+Module implementing a Dynamics source representing quadratic drag on a body.
+"""
+
 import typing
 
 import numpy as np
