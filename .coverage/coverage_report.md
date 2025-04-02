@@ -18,7 +18,7 @@
 | /home/alex/Projects/pynamics/pynamics/math/linalg.py               |       14 |        0 |    100% |
 | /home/alex/Projects/pynamics/pynamics/sim.py                       |      107 |        6 |     94% |
 | /home/alex/Projects/pynamics/pynamics/tests/\_\_init\_\_.py        |        0 |        0 |    100% |
-| /home/alex/Projects/pynamics/pynamics/tests/test\_dynamics.py      |      160 |        1 |     99% |
+| /home/alex/Projects/pynamics/pynamics/tests/test\_dynamics.py      |      159 |        1 |     99% |
 | /home/alex/Projects/pynamics/pynamics/tests/test\_topology.py      |       86 |        6 |     93% |
 | /home/alex/Projects/pynamics/pynamics/visualizer.py                |      104 |       17 |     84% |
-|                                                          **TOTAL** | **1123** |   **88** | **92%** |
+|                                                          **TOTAL** | **1122** |   **88** | **92%** |

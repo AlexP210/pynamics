@@ -342,7 +342,6 @@ class TestDynamics(unittest.TestCase):
         # x(t) = (-v(0)m/k)*e^(-k*t/m) + B
         # => B = x(0) + v(0)m/k
         # x(t) = (-v(0)m/k)*e^(-k*t/m) + x(0) + v(0)m/k
-        print(sim.data_history.keys())
         self.assertTrue(
             list(sim.data_history.keys()) == ["Time"]
         )
