@@ -1,3 +1,4 @@
+"""Linear Algebra"""
 import numpy as np
 
 def R3_cross_product_matrix(v:np.matrix):
@@ -19,3 +20,16 @@ def cross(v:np.matrix):
 
 def cross_star(v:np.matrix):
     return -cross(v).T
+
+def matrix_exponential(A:np.matrix) -> np.matrix:
+    """
+    Calculate the matrix exponential.
+
+    Args:
+        A (np.matrix): A matrix for which to calculate the matrix exponential.
+
+    Returns:
+        np.matrix: The matrix exponential of A
+    """
+    eigen_values, eigen_vectors = np.linalg.eig(A)
+    return eigen_vectors * np.diag(np.exp(eigen_values)) * np.linalg.inv(eigen_vectors)
