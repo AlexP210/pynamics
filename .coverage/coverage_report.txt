@@ -1,0 +1,25 @@
+Name                                                                Stmts   Miss  Cover
+---------------------------------------------------------------------------------------
+/home/alex/Projects/pynamics/pynamics/__init__.py                       0      0   100%
+/home/alex/Projects/pynamics/pynamics/constants.py                      4      0   100%
+/home/alex/Projects/pynamics/pynamics/dynamics/__init__.py              7      0   100%
+/home/alex/Projects/pynamics/pynamics/dynamics/buoyancy.py             30      1    97%
+/home/alex/Projects/pynamics/pynamics/dynamics/dynamics_parent.py      36      2    94%
+/home/alex/Projects/pynamics/pynamics/dynamics/gravity.py              13      0   100%
+/home/alex/Projects/pynamics/pynamics/dynamics/joint_damping.py        10      0   100%
+/home/alex/Projects/pynamics/pynamics/dynamics/quadratic_drag.py       52      4    92%
+/home/alex/Projects/pynamics/pynamics/dynamics/revolute_motor.py       26      1    96%
+/home/alex/Projects/pynamics/pynamics/dynamics/spring.py               21      0   100%
+/home/alex/Projects/pynamics/pynamics/kinematics/__init__.py            0      0   100%
+/home/alex/Projects/pynamics/pynamics/kinematics/joint.py             149     13    91%
+/home/alex/Projects/pynamics/pynamics/kinematics/topology.py          254     35    86%
+/home/alex/Projects/pynamics/pynamics/math/__init__.py                  0      0   100%
+/home/alex/Projects/pynamics/pynamics/math/integrators.py              50      2    96%
+/home/alex/Projects/pynamics/pynamics/math/linalg.py                   14      0   100%
+/home/alex/Projects/pynamics/pynamics/sim.py                          107      6    94%
+/home/alex/Projects/pynamics/pynamics/tests/__init__.py                 0      0   100%
+/home/alex/Projects/pynamics/pynamics/tests/test_dynamics.py          160      1    99%
+/home/alex/Projects/pynamics/pynamics/tests/test_topology.py           86      6    93%
+/home/alex/Projects/pynamics/pynamics/visualizer.py                   104     17    84%
+---------------------------------------------------------------------------------------
+TOTAL                                                                1123     88    92%
