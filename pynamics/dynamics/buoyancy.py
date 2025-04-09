@@ -63,11 +63,15 @@ class Buoyancy(BodyDynamicsParent):
         )
         force = np.matrix([0, 0, 0]).T
         point_of_application = np.matrix([0, 0, 0]).T
+        water_volume = 0
         if not submerged.is_empty:
             water_volume = submerged.volume
             water_mass = water_volume * self.fluid_density
             force = -water_mass * self.g * self.direction
             point_of_application = np.matrix(submerged.center_mass).T
-        return [
-            (force, point_of_application),
-        ]
+        return (
+            [(force, point_of_application),], 
+            {
+                "Submerged Volume": water_volume,
+            }
+        )

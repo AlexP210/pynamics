@@ -39,4 +39,4 @@ class Gravity(BodyDynamicsParent):
         )[:3, 3]
         return [
             (force, point_of_application),
-        ]
+        ], {}

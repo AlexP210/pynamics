@@ -3,7 +3,7 @@ import os
 import numpy as np
 import trimesh
 
-from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag
+from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag, ConstantBodyForce
 import pynamics.kinematics.topology as topo
 import pynamics.kinematics.joint as joint
 from pynamics.sim import Sim
@@ -39,13 +39,42 @@ if __name__ == "__main__":
 
     water_world_sim = Sim(
         topology=water_world,
-        body_dynamics={"gravity": Gravity(g=-9.81, body_names=["Block"])},
+        body_dynamics={
+            "Constant": ConstantBodyForce(
+                force = np.matrix([0,0,-500]).T,
+                application_position=("Block", "Identity"),
+                application_orientation=("World", "Identity")
+            ),
+            # "Gravity": Gravity(g=-9.81),
+            "Drag": QuadraticDrag(
+                drag_models={
+                    "Block": trimesh.load(
+                        file_obj=os.path.join(HOME, "models", "common", "Cube.obj"), 
+                        file_type="obj", 
+                        force="mesh")
+                }
+            )
+        },
     )
 
-    water_world_sim.simulate(delta_t=5, dt=0.01, verbose=True)
-    water_world_sim.save_data("Block_Test.csv")
-    # water_world_vis.add_sim_data(water_world_sim)
-    # water_world_vis.animate(
-    #     save_path="Block_Test.mp4", 
-    #     verbose=True)
+    water_world_sim.simulate(delta_t=10, dt=0.001, verbose=True)
+    # water_world_sim.save_data("Block_Test.csv")
+    water_world_vis.add_sim_data(water_world_sim)
+    water_world_vis.animate(
+        save_path="Block_Test.mp4", 
+        verbose=True)
 
+    # Body Velocities
+    import matplotlib.pyplot as plt
+    t = water_world_sim.data["Time"]
+    for body_idx, body_name in enumerate(water_world.get_ordered_body_list()[1:2]):
+        fig, ax = plt.subplots(2,3)
+        for i_j in range(6): 
+            i = i_j//3
+            j = i_j%3
+            v = water_world_sim.data["Bodies"][body_name][f"Velocity {i_j}"]
+            ax[i,j].plot(t, v, linewidth=1, c="k")
+            ax[i,j].set_xlabel("Time")
+            ax[i,j].set_ylabel(f"Velocity {i_j}")
+        fig.suptitle(f"{body_name} Body")
+        plt.show()

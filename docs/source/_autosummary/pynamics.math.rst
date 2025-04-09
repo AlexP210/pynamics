@@ -29,4 +29,5 @@
 
    integrators
    linalg
+   utils
 

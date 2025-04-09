@@ -64,4 +64,6 @@ class Spring(BodyDynamicsParent):
         )[:3, 3]
         return [
             (force, point_of_application),
-        ]
+        ], {
+            "Extension": np.linalg.norm(r_this_that)
+        }

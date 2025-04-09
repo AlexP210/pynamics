@@ -17,6 +17,7 @@ pynamics.math.linalg
       R3_cross_product_matrix
       cross
       cross_star
+      matrix_exponential
    
    
 

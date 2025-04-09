@@ -1,4 +1,5 @@
-""" Base classes for Dynamics Modules """
+"""Base classes for Dynamics Modules"""
+
 import typing
 import abc
 import numpy as np
@@ -20,7 +21,9 @@ class BodyDynamicsParent(abc.ABC):
     @abc.abstractmethod
     def compute_dynamics(
         self, topology: Topology, body_name: str
-    ) -> typing.List[typing.Tuple[np.matrix, np.matrix]]:
+    ) -> typing.Tuple[
+        typing.List[typing.Tuple[np.matrix, np.matrix]], typing.Dict[str, float]
+    ]:
         """Compute a list of forces and their points of application in the \
         body frame.
 
@@ -33,7 +36,8 @@ class BodyDynamicsParent(abc.ABC):
 
         Returns:
             typing.List[typing.Tuple[np.matrix, np.matrix]]: A list of (force, position) \
-            pairs, representing the applied forces and where they are applied in body co-ordinates.
+            pairs, representing the applied forces and where they are applied in world co-ordinates.
+            typing.Dict[str, float]: A dictionary with any associated data that should be logged
         """
         raise NotImplementedError(
             "Implement `compute_dynamics()` in your `BodyDynamicsParent` subclass."
@@ -41,15 +45,20 @@ class BodyDynamicsParent(abc.ABC):
 
     def __call__(self, topology: Topology, body_name: str) -> np.matrix:
         total_wrench = np.matrix(np.zeros(shape=(6, 1)))
+        data = {}
         if body_name in self.body_names or self.body_names == []:
-            for force, point_of_application in self.compute_dynamics(
-                topology, body_name
-            ):
+            forces_and_points_of_application, data = self.compute_dynamics(topology, body_name)
+            for force, point_of_application in forces_and_points_of_application:
                 wrench = np.matrix(np.zeros(shape=(6, 1)))
                 wrench[:3, 0] = R3_cross_product_matrix(point_of_application) @ force
                 wrench[3:, 0] = force
                 total_wrench += wrench
-        return total_wrench
+            data["Total Moment"] = np.linalg.norm(total_wrench[:3])
+            data["Total Force"] = np.linalg.norm(total_wrench[3:])
+            for idx in range(6):
+                data[f"Force {idx}"] = total_wrench[idx,0]
+
+        return total_wrench, data
 
     def update(self, topology: Topology, dt: float):
         """Perform any update steps needed by the dynamics module.
@@ -80,7 +89,9 @@ class JointDynamicsParent(abc.ABC):
         self.joint_names = joint_names
 
     @abc.abstractmethod
-    def compute_dynamics(self, topology: Topology, joint_name: str) -> typing.List[np.matrix]:
+    def compute_dynamics(
+        self, topology: Topology, joint_name: str
+    ) -> typing.Tuple[typing.List[np.matrix], typing.Dict[str, float]]:
         """Compute a list of joint space forces.
 
         Args:
@@ -92,15 +103,24 @@ class JointDynamicsParent(abc.ABC):
 
         Returns:
             typing.List[np.matrix]: List of joint space forces being applied.
+            typing.Dict[str, float]: A dictionary with any associated data that should be logged.
         """
         raise NotImplementedError(
             "Implement `compute_dynamics()` in your `JointDynamicsParent` subclass."
         )
 
     def __call__(self, topology: Topology, joint_name: str) -> np.matrix:
-        return ((joint_name in self.joint_names) or self.joint_names == []) * sum(
-            self.compute_dynamics(topology, joint_name)
-        )
+        if (joint_name in self.joint_names) or (self.joint_names == []):
+            forces, data = self.compute_dynamics(topology, joint_name)
+            total_force = sum(forces)
+            data["Total Force"] = np.linalg.norm(total_force)
+            for idx in range(total_force.size):
+                data[f"Force {idx}"] = total_force[idx,0]
+            return total_force, data
+        else:
+            return np.zeros(
+                shape=topology.joints[joint_name].get_configuration_d().shape
+            ), {}
 
     def update(self, topology: Topology, dt: float):
         """Perform any update steps needed by the dynamics module.

@@ -1,10 +1,10 @@
 import numpy as np
 import trimesh
 
-from pynamics.dynamics import Gravity, RevoluteMotor, JointDamping
+from pynamics.dynamics import Gravity, RevoluteDCMotor, JointDamping
 import pynamics.kinematics.topology as topo
 import pynamics.kinematics.joint as joint
-from pynamics.boatsim import Sim
+from pynamics.sim import Sim
 from pynamics.visualizer import Visualizer
 
 if __name__ == "__main__":
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         #     "gravity": Gravity(-9.81, 2)
         # },
         joint_dynamics={
-            "Motor": RevoluteMotor(
+            "Motor": RevoluteDCMotor(
                 joint_name="Pendulum Body",
                 electromotive_constant=0.05,
                 resistance=0.1,

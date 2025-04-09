@@ -2,10 +2,10 @@ import numpy as np
 import trimesh
 import os
 
-from pynamics.dynamics import Gravity, JointDamping, Spring, RevoluteMotor
+from pynamics.dynamics import Gravity, JointDamping, Spring, RevoluteDCMotor
 import pynamics.kinematics.topology as topo
 import pynamics.kinematics.joint as joint
-from pynamics.boatsim import Sim
+from pynamics.sim import Sim
 from pynamics.visualizer import Visualizer
 
 if __name__ == "__main__":
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     spring_world = topo.Topology()
     spring_world.add_connection("World", "Identity", pendulum_body.copy(), "Pendulum Body", joint.RevoluteJoint(1))
     spring_world.add_connection("World", "Identity", bouncy_body.copy(), "Bouncy Body", joint.FreeJoint())
-    spring_world.joints["Bouncy Body"].set_configuration(np.matrix([0,0,0,1,0,0]).T)
+    spring_world.joints["Bouncy Body"].set_configuration(np.matrix([1,0,0,0, 1,0,0]).T)
     spring_world_vis = Visualizer(
         topology=spring_world,
         visualization_models={
@@ -55,11 +55,11 @@ if __name__ == "__main__":
                 frame2="Identity",
                 stiffness=10
             ),
-            "gravity": Gravity(-9.81, 2)
+            "gravity": Gravity(-9.81)
         }
     )
 
     spring_world_sim.simulate(delta_t=10, dt=0.01, verbose=True)
     spring_world_vis.add_sim_data(spring_world_sim)
-    spring_world_vis.animate(save_path="Spring_Test.mp4", verbose=True)
+    spring_world_vis.animate()
 

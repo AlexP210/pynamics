@@ -73,7 +73,12 @@ class QuadraticDrag(BodyDynamicsParent):
 
         forces_and_points_of_application = []
         if submerged.is_empty:
-            return forces_and_points_of_application
+            return forces_and_points_of_application, {
+                "Drag Area": 0,
+                "Number of Drag Faces": 0,
+                "Max v^2": 0,
+                "Max Norm v_hat": 1
+            }
         submerged.merge_vertices()
         submerged.fix_normals()
         body_velocity = (
@@ -81,6 +86,10 @@ class QuadraticDrag(BodyDynamicsParent):
             @ topology.bodies[body_name].get_velocity()
         )
         # Calculate drag
+        A_perp_total = 0
+        number_of_contributing_faces = 0
+        max_v_squared = 0
+        max_norm_v_hat = 0
         for face, normal in zip(submerged.faces, submerged.face_normals):
 
             # Get some useful quantities
@@ -100,6 +109,7 @@ class QuadraticDrag(BodyDynamicsParent):
                 v_hat = np.matrix([0, 0, 0]).T
             else:
                 v_hat = v / np.linalg.norm(v)
+            max_norm_v_hat = max(max_norm_v_hat, np.linalg.norm(v_hat))
 
             # Check the normals
             if np.linalg.norm(normal) < EPSILON:
@@ -110,19 +120,27 @@ class QuadraticDrag(BodyDynamicsParent):
             # directed into the face, no drag contributed by this face
             if np.dot(v_hat.T, normal) >= 0:
                 continue
+            number_of_contributing_faces += 1
 
             # Calculate the area perpendicular to the velocity
             A = 0.5 * np.linalg.norm(
                 np.cross(vertices[1] - vertices[0], vertices[2] - vertices[1])
             )
             A_perp = A * np.dot(-normal.T, v_hat)[0, 0]
+            A_perp_total += A_perp
 
             # Calculate the force magnitude
             v_squared = np.dot(v.T, v)[0, 0]
+            max_v_squared = max(max_v_squared, v_squared)
             force_magnitude = (
                 0.5 * self.fluid_density * self.drag_coefficient * A_perp * v_squared
             )
             force = force_magnitude * v_hat
             forces_and_points_of_application.append((force, point_of_application))
 
-        return forces_and_points_of_application
+        return forces_and_points_of_application, {
+            "Drag Area": A_perp_total,
+            "Number of Drag Faces": number_of_contributing_faces,
+            "Max v^2": max_v_squared,
+            "Max Norm v_hat": max_norm_v_hat
+        }

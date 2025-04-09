@@ -13,6 +13,8 @@ from matplotlib import animation
 
 from pynamics.sim import Sim
 from pynamics.kinematics.topology import Topology
+from pynamics.math import utils
+
 
 class Visualizer:
     """
@@ -52,7 +54,14 @@ class Visualizer:
         self.sim = sim
         self.lower_bound = np.zeros(shape=(3,))
         self.upper_bound = np.zeros(shape=(3,))
-        for joint_configuration in self.sim.joint_space_position_history:
+        for idx, time in enumerate(self.sim.data["Time"]):
+            joint_configuration = {}
+            for joint_name in self.topology.get_ordered_body_list()[1:]:
+                joint = self.topology.joints[joint_name]
+                joint_configuration[joint_name] = np.matrix([
+                    self.sim.data["Joints"][joint_name][f"Position {i}"][idx]
+                    for i in range(joint.get_configuration().size)
+                ]).T
             lb, ub = self._get_bounds(joint_configuration)
             for i in range(3):
                 self.lower_bound[i] = min(self.lower_bound[i], lb[i])
@@ -160,9 +169,18 @@ class Visualizer:
 
         return axes, artists
 
-    def _update(self, step_idx: int, axes: plt.Axes):
+    def _update(self, time: float, axes: plt.Axes):
         # Get the state for this time
-        q = self.sim.joint_space_position_history[step_idx]
+        q = {}
+        for joint_name in self.topology.get_ordered_body_list()[1:]:
+            joint = self.topology.joints[joint_name]
+            q[joint_name] = np.matrix([
+                utils.interpolate(
+                    ts=self.sim.data["Time"],
+                    xs=self.sim.data["Joints"][joint_name][f"Position {i}"],
+                    t=time)
+                for i in range(joint.get_configuration().size)
+            ]).T
 
         for body_name, artist in self.visualization_artists.items():
             artist.remove()
@@ -197,10 +215,17 @@ class Visualizer:
             plt.cla()
             plt.close()
 
-    def animate(self, save_path: str = None, verbose: bool = False, figsize=(12, 10)):
-        """Animate the `data_history` of the attached `Sim` object.
+    def animate(
+        self,
+        fps: int = 60,
+        save_path: str = None,
+        verbose: bool = False,
+        figsize=(12, 10),
+    ):
+        """Animate the `data` of the attached `Sim` object.
 
         Args:
+            fps (int, optional): The frames per second at which to animate.
             save_path (str, optional): Path at which to save the sim animation. \
             Defaults to None.
             verbose (bool, optional): Whether to display a progress bar. \
@@ -214,12 +239,16 @@ class Visualizer:
         # add_sim_data already computed the bounds
         axes = self._trim_axes(axes, self.lower_bound, self.upper_bound)
 
-        dt = self.sim.data_history["Time"][1] - self.sim.data_history["Time"][0]
+        dt = self.sim.data["Time"][1] - self.sim.data["Time"][0]
+        time_per_frame = 1/fps if 1/fps > dt else dt
+        delta_t = self.sim.data["Time"][-1] - self.sim.data["Time"][0]
+        N_frames = int(delta_t / time_per_frame)
+
         ani = animation.FuncAnimation(
             fig=fig,
             func=lambda i, axes: self._update(i, axes),
-            frames=len(self.sim.joint_space_position_history),
-            interval=dt * 1000,
+            frames=np.linspace(self.sim.data["Time"][0], self.sim.data["Time"][-1], N_frames),
+            interval=round(time_per_frame*1000),
             fargs=(axes,),
         )
 
@@ -227,9 +256,7 @@ class Visualizer:
             plt.show()
         else:
             if verbose:
-                with tqdm.tqdm(
-                    total=len(self.sim.joint_space_position_history)
-                ) as progress_bar:
+                with tqdm.tqdm(total=N_frames) as progress_bar:
                     ani.save(
                         save_path, progress_callback=lambda i, n: progress_bar.update()
                     )

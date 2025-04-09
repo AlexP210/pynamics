@@ -29,4 +29,4 @@ class JointDamping(JointDynamicsParent):
     ) -> typing.List[np.matrix]:
         return [
             -self.damping_factor * topology.joints[body_name].get_configuration_d(),
-        ]
+        ], {}
