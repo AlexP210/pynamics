@@ -65,16 +65,20 @@ pendulum_sim.simulate(delta_t=30, dt=0.01, verbose=True)
 
 # Plot the results
 import matplotlib.pyplot as plt
-time = pendulum_sim.data_history["Time"]
-joint_position = pendulum_sim.data_history["Pendulum / Position 0"]
-joint_velocity = pendulum_sim.data_history["Pendulum / Velocity 0"]
-fig, ax = plt.subplots(1,2)
+time = pendulum_sim.data["Time"]
+joint_position = pendulum_sim.data["Joints"]["Pendulum"]["Position 0"]
+joint_velocity = pendulum_sim.data["Joints"]["Pendulum"]["Velocity 0"]
+current = pendulum_sim.data["Joint Forces"]["motor"]["Pendulum"]["Current"]
+fig, ax = plt.subplots(1,3)
 ax[0].plot(time, joint_position)
 ax[0].set_xlabel("Time (s)")
 ax[0].set_ylabel("Joint Position (rad)")
 ax[1].plot(time, joint_velocity, label="Joint Velocity (rad/s)")
 ax[1].set_xlabel("Time (s)")
 ax[1].set_ylabel("Joint Velocity (rad/s)")
+ax[2].plot(time, current, label="Motor Current (A)")
+ax[1].set_xlabel("Time (s)")
+ax[1].set_ylabel("Motor Current (A)")
 plt.tight_layout()
 plt.savefig(os.path.join("pynamics", "example", "pendulum.png"))
 

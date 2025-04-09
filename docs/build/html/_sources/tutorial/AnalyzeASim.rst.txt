@@ -7,22 +7,37 @@ To analyze the results of a sim, we can do one of two things:
 1. Inspect the contents of `Sim.data_history`
 2. Use the :code:`Visualizer` to visualize our sim.
 
-------------------------
-Using :code:`Sim.data_history`
-------------------------
+----------------------
+Using :code:`Sim.data`
+----------------------
 
-After the :code:`Sim` runs, the `Sim.data_history` attribute can be accessed
-to read data collected during the simulation. This attribute is a dictionary,
-where keys are the data labels and the values are a time series.
+After the :code:`Sim` runs, the `Sim.data` attribute can be accessed
+to read data collected during the simulation. This attribute is a nested 
+dictionary, with the following structure:
 
-Currently, Pynamics exposes the following data labels:
-
-1. **"Time"**: The time in the simulation.
-2. **"<Body Name> / Position <0-N>"**: For each Body Name, the joint-space 
-    configuration of the body's parent :code:`Joint`.
-3. **"<Body Name> / Velocity <0-N>"**: For each Body Name, the joint-space 
-    velocity of the body's parent :code:`Joint`.
-
+- "Time"
+- "Bodies"
+    - <Body Name>
+        - "Position [0-3]": ("World", "Identity") to ("Body","Identity") quaternion,
+            with (w, x, y, z) format
+        - "Position [4-6]": ("World", "Identity") to ("Body","Identity") translation
+            vector, expressed in ("World", "Identity")
+        - "Velocity [0-5]": Body velocity in ("World", "Identity") frame, in [w, z] format.
+        - "Acceleration [0-5]": Body acceleration in ("World", "Identity") frame, in [\alpha, a] format.
+- "Joints"
+    - <Joint Name>
+        - "Position [0-N]": Position co-ordinates in joint space.
+        - "Velocity [0-N]": Velocity in joint space.
+        - "Acceleration [0-N]": Acceleration in joint space.
+- "Body Forces"
+    - <Force Module Name>
+        - <Body Name>
+            - "Total Force": Magnitude of the applied force vector.
+            - "Total Moment": Magnitude of the applied force moment/torque.
+            - "Force [0-5]": Components of the torque-force wrench expressed in
+                the ("World", "Identity") frame.
+            - <Additional Data Labels>: Additional data determined by the force module.
+    
 Going back to the example from last page, the code below plots the "Cube" 
 body's distance from the origin over time.
 
@@ -31,11 +46,10 @@ body's distance from the origin over time.
     import matplotlib.pyplot as plt
     import pandas as pd
 
-    data = pd.DataFrame(simulation.data_history)
     distance_from_origin = (
-        data["Cube / Position 4"] **2
-        + data["Cube / Position 5"] **2
-        + data["Cube / Position 6"] **2
+        sim.data["Bodies"]["Cube"]["Position 4"] **2
+        sim.data["Bodies"]["Cube"]["Position 5"] **2
+        sim.data["Bodies"]["Cube"]["Position 6"] **2
     )**(0.5)
 
     plt.plot(data["Time"], distance)

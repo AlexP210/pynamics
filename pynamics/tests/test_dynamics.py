@@ -113,8 +113,8 @@ class TestDynamics(unittest.TestCase):
                 save_path=os.path.join(const.HOME, "tests", "test_buoyancy.mp4")
             )
 
-        t = np.array(sim.data_history["Time"])
-        x = sim.data_history["Cube / Position 6"]
+        t = np.array(sim.data["Time"])
+        x = sim.data["Joints"]["Cube"]["Position 6"]
         f = 9.81 * 1000 * (2**3)
         a = f / sim.topology.bodies["Cube"].mass
         x_expected = -500 + 0.5 * (a * t**2)
@@ -146,10 +146,10 @@ class TestDynamics(unittest.TestCase):
                 save_path=os.path.join(const.HOME, "tests", "test_gravity.mp4")
             )
 
-        t = np.array(sim.data_history["Time"])
+        t = np.array(sim.data["Time"])
         a = -9.81
         x_expected = 0.5 * a * (t**2)
-        x = sim.data_history["Cube / Position 6"]
+        x = sim.data["Joints"]["Cube"]["Position 6"]
 
         self.save_plot_artifact(
             time=t,
@@ -191,13 +191,13 @@ class TestDynamics(unittest.TestCase):
             visualizer.add_sim_data(sim)
             visualizer.animate(save_path=os.path.join(const.HOME, "tests", "test_drag.mp4"))
 
-        t = np.array(sim.data_history["Time"])
+        t = np.array(sim.data["Time"])
         # v_d = (-0.5 * density * C_d * A) / m * v^2
         # => v_d(t) = 1 / [(0.5*density*C_d*A)*t + c_1]
         # => c_1 = 1/v_d(0)
         m = sim.topology.bodies["Cube"].mass
         v_expected = 1 / (0.5 * 1000 * 1 * (2**2) / m * t + 1 / 0.1)
-        v = sim.data_history["Cube / Velocity 3"]
+        v = sim.data["Joints"]["Cube"]["Velocity 3"]
 
         self.save_plot_artifact(
             time=t,
@@ -235,7 +235,7 @@ class TestDynamics(unittest.TestCase):
                 save_path=os.path.join(const.HOME, "tests", "test_spring.mp4")
             )
 
-        t = np.array(sim.data_history["Time"])
+        t = np.array(sim.data["Time"])
         # x_dd = -(k/m)*(|x|-l)
         # x(t) = A*sin(sqrt(k/m)*t) + B*cos(sqrt(k/m)*t) + l
         # x_d(t) = A*sqrt(k/m)*cos(sqrt(k/m)*t) - B*sqrt(k/m)*sin(sqrt(k/m)*t)
@@ -247,7 +247,7 @@ class TestDynamics(unittest.TestCase):
         k = m
         omega = np.sqrt(k / m)
         x_expected = (-0.1 / omega) * np.sin(omega * t)
-        x = sim.data_history["Cube / Position 2"]
+        x = sim.data["Joints"]["Cube"]["Position 2"]
 
         self.save_plot_artifact(
             time=t,
@@ -282,7 +282,7 @@ class TestDynamics(unittest.TestCase):
                 save_path=os.path.join(const.HOME, "tests", "test_joint_damping.mp4")
             )
 
-        t = np.array(sim.data_history["Time"])
+        t = np.array(sim.data["Time"])
         # x_dd = -(k/m)*x_d
         # v_d = -(k/m)*v
         # (1/v)*dv = -(k/m)*dt
@@ -296,7 +296,7 @@ class TestDynamics(unittest.TestCase):
         x_hat = np.matrix([1,0,0]).T
         I = (x_hat.T @ topology.bodies["Cube"].inertia_matrix @ x_hat)[0,0]
         x_expected = (0.1 * I / 0.5) * (1 - np.exp(-0.5 * t / I))
-        x = sim.data_history["Cube / Position 0"]
+        x = sim.data["Joints"]["Cube"]["Position 0"]
 
         self.save_plot_artifact(
             time=t,
@@ -318,7 +318,7 @@ class TestDynamics(unittest.TestCase):
             topology=topology,
             body_dynamics={
                 "gravity": dynamics.Gravity(
-                    g=9.81,
+                    g=-9.81,
                     direction=np.matrix([0,0,1]).T,
                     body_names=["Cube"]
                 )
@@ -331,7 +331,7 @@ class TestDynamics(unittest.TestCase):
                 save_path=os.path.join(const.HOME, "tests", "test_joint_damping.mp4")
             )
 
-        t = np.array(sim.data_history["Time"])
+        t = np.array(sim.data["Time"])
         # x_dd = -(k/m)*x_d
         # v_d = -(k/m)*v
         # (1/v)*dv = -(k/m)*dt
@@ -343,7 +343,7 @@ class TestDynamics(unittest.TestCase):
         # => B = x(0) + v(0)m/k
         # x(t) = (-v(0)m/k)*e^(-k*t/m) + x(0) + v(0)m/k
         self.assertTrue(
-            list(sim.data_history.keys()) == ["Time"]
+            sim.data["Joints"]["Cube"] == {}
         )
 
     def test_revolute_motor(self):
@@ -368,7 +368,7 @@ class TestDynamics(unittest.TestCase):
                 save_path=os.path.join(const.HOME, "tests", "test_revolute_motor.mp4")
             )
 
-        ts = np.array(sim.data_history["Time"])
+        ts = np.array(sim.data["Time"])
 
         # https://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&section=SystemModeling
         # x = [w, i].T
@@ -404,7 +404,7 @@ class TestDynamics(unittest.TestCase):
             neg_exp_At = linalg.matrix_exponential(-A*t)
 
             x_expected[t_idx] = (exp_At@inv_A@(np.eye(*A.shape) - neg_exp_At)@B)[0,0]
-        x = sim.data_history["Cube / Velocity 0"]
+        x = sim.data["Joints"]["Cube"]["Velocity 0"]
 
         self.save_plot_artifact(
             time=ts,
@@ -417,4 +417,77 @@ class TestDynamics(unittest.TestCase):
         self.assertTrue(
             (abs(x - x_expected) < 0.005).all(),
             msg="RevoluteDCMotor simulates correctly on a free body.",
+        )
+
+
+    def test_constant_joint_force(self):
+        warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+        topology, visualizer = self.make_cube_topology(joint.FreeJoint())
+        sim = Sim(
+            topology=topology,
+            joint_dynamics={
+                "constant joint force": dynamics.ConstantJointForce(
+                    force=np.matrix([0,0,0, 1,0,0]).T
+                ),
+            },
+        )
+        sim.simulate(delta_t=5, dt=0.01)
+        visualizer.add_sim_data(sim)
+        if not os.getenv("GITHUB_ACTIONS"):
+            visualizer.animate(
+                save_path=os.path.join(const.HOME, "tests", "test_constant_joint_force.mp4")
+            )
+
+        ts = np.array(sim.data["Time"])
+
+        x_expected = 0.5*(1/topology.bodies["Cube"].mass) * ts**2
+        x = sim.data["Joints"]["Cube"]["Position 4"]
+
+        self.save_plot_artifact(
+            time=ts,
+            value=x,
+            expected_value=x_expected,
+            value_name="Joint Position",
+            test_name="test_constant_joint_force",
+        )
+
+        self.assertTrue(
+            (abs(x - x_expected) < const.EPSILON).all(),
+            msg="ConstantJointForce simulates correctly on a free body.",
+        )
+
+    def test_constant_body_force(self):
+        warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+        topology, visualizer = self.make_cube_topology(joint.FreeJoint())
+        sim = Sim(
+            topology=topology,
+            body_dynamics={
+                "constant body force": dynamics.ConstantBodyForce(
+                    force=np.matrix([1,0,0]).T,
+                ),
+            },
+        )
+        sim.simulate(delta_t=5, dt=0.01)
+        visualizer.add_sim_data(sim)
+        if not os.getenv("GITHUB_ACTIONS"):
+            visualizer.animate(
+                save_path=os.path.join(const.HOME, "tests", "test_constant_body_force.mp4")
+            )
+
+        ts = np.array(sim.data["Time"])
+
+        x_expected = 0.5*(1/topology.bodies["Cube"].mass) * ts**2
+        x = sim.data["Joints"]["Cube"]["Position 4"]
+
+        self.save_plot_artifact(
+            time=ts,
+            value=x,
+            expected_value=x_expected,
+            value_name="Joint Position",
+            test_name="test_constant_body_force",
+        )
+
+        self.assertTrue(
+            (abs(x - x_expected) < const.EPSILON).all(),
+            msg="ConstantBodyForce simulates correctly on a free body.",
         )

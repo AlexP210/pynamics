@@ -58,7 +58,11 @@ class RevoluteDCMotor(JointDynamicsParent):
             self.electromotive_constant
             * self.current
             * np.matrix(np.ones(shape=joint.get_configuration().shape)),
-        ]
+        ], {
+            "Current": self.current,
+            "EMF": self.emf,
+            "Voltage": self.voltage,
+        }
 
     def update(self, topology: Topology, dt: float):
         joint = topology.joints[self.joint_names[0]]

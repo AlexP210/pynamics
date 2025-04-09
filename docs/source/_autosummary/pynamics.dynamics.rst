@@ -28,6 +28,8 @@
    :recursive:
 
    buoyancy
+   constant_body_force
+   constant_joint_force
    dynamics_parent
    gravity
    joint_damping

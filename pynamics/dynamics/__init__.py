@@ -9,3 +9,5 @@ from pynamics.dynamics.spring import Spring
 from pynamics.dynamics.revolute_motor import RevoluteDCMotor
 from pynamics.dynamics.buoyancy import Buoyancy
 from pynamics.dynamics.quadratic_drag import QuadraticDrag
+from pynamics.dynamics.constant_joint_force import ConstantJointForce
+from pynamics.dynamics.constant_body_force import ConstantBodyForce
