@@ -71,25 +71,22 @@
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_motion_subspace</span></code>()</p></td>
 <td><p>The S matrix for the joint, converting joint-space velocity to cartesian         space velocity.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_rotation_matrix</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_p</span></code>()</p></td>
+<td><p>Calculates and returns the &quot;P&quot; matrix for the joint, mapping joint space velocity to the time derivative of the joint space position components.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_rotation_matrix</span></code>()</p></td>
 <td><p>Get the rotation matrix across a joint, transforming vectors from the         child body frame to the parent body frame.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_translation_vector</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_translation_vector</span></code>()</p></td>
 <td><p>Get the translation vector across a joint, expressed in the child body         frame.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_velocity</span></code>()</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_velocity</span></code>()</p></td>
 <td><p>Get the velocity across the joint, v_J.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">initialize_integrator</span></code>()</p></td>
-<td><p>Initialize the state of the integrator with the current state of the         joint</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">integrate</span></code>(dt, q_dd)</p></td>
-<td><p>Use the integrator to increment the state (q) and velocity (dot{q})</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_configuration</span></code>(configuration)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_configuration</span></code>(configuration)</p></td>
 <td><p>Set the joint space position q.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_configuration_d</span></code>(configuration_d)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_configuration_d</span></code>(configuration_d)</p></td>
 <td><p>Set the joint space velocity, dot{q}.</p></td>
 </tr>
 </tbody>

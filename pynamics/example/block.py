@@ -40,24 +40,24 @@ if __name__ == "__main__":
     water_world_sim = Sim(
         topology=water_world,
         body_dynamics={
-            "Constant": ConstantBodyForce(
-                force = np.matrix([0,0,-500]).T,
-                application_position=("Block", "Identity"),
-                application_orientation=("World", "Identity")
-            ),
-            # "Gravity": Gravity(g=-9.81),
-            "Drag": QuadraticDrag(
-                drag_models={
-                    "Block": trimesh.load(
-                        file_obj=os.path.join(HOME, "models", "common", "Cube.obj"), 
-                        file_type="obj", 
-                        force="mesh")
-                }
-            )
+            # "Constant": ConstantBodyForce(
+            #     force = np.matrix([0,0,-500]).T,
+            #     application_position=("Block", "Identity"),
+            #     application_orientation=("World", "Identity")
+            # ),
+            "Gravity": Gravity(g=-9.81),
+            # "Drag": QuadraticDrag(
+            #     drag_models={
+            #         "Block": trimesh.load(
+            #             file_obj=os.path.join(HOME, "models", "common", "Cube.obj"), 
+            #             file_type="obj", 
+            #             force="mesh")
+            #     }
+            # )
         },
     )
 
-    water_world_sim.simulate(delta_t=10, dt=0.001, verbose=True)
+    water_world_sim.simulate(delta_t=0.3*10, dt=0.01, verbose=True)
     # water_world_sim.save_data("Block_Test.csv")
     water_world_vis.add_sim_data(water_world_sim)
     water_world_vis.animate(

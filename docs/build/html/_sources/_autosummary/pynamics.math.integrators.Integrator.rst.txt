@@ -14,8 +14,8 @@ pynamics.math.integrators.Integrator
    .. autosummary::
    
       ~Integrator.__init__
-      ~Integrator.initialize_state
-      ~Integrator.step
+      ~Integrator.integrate
+      ~Integrator.set_initial_condition
    
    
 

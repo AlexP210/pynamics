@@ -21,11 +21,10 @@ pynamics.kinematics.joint.Joint
       ~Joint.get_configuration_d
       ~Joint.get_constraint_force_subspace
       ~Joint.get_motion_subspace
+      ~Joint.get_p
       ~Joint.get_rotation_matrix
       ~Joint.get_translation_vector
       ~Joint.get_velocity
-      ~Joint.initialize_integrator
-      ~Joint.integrate
       ~Joint.set_configuration
       ~Joint.set_configuration_d
    

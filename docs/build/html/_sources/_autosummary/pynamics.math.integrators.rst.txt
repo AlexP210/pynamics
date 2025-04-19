@@ -18,9 +18,9 @@ pynamics.math.integrators
    .. autosummary::
       :toctree:
    
-      ForwardEulerQuaternionIntegrator
+      ForwardEuler
       Integrator
-      VerletIntegrator
+      RungeKutta4
    
    
 

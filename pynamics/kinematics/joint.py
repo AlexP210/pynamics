@@ -5,7 +5,6 @@ Module containing the definition of all available joints.
 import abc
 
 import numpy as np
-from pynamics.math.integrators import VerletIntegrator, ForwardEulerQuaternionIntegrator
 from pynamics.constants import EPSILON
 
 
@@ -44,6 +43,19 @@ class Joint(abc.ABC):
         This is zero for any joint with a constant S-matrix.
         """
         pass
+
+    @abc.abstractmethod
+    def get_p(self) -> np.matrix:
+        """
+        Calculates and returns the "P" matrix for the joint, mapping joint space
+        velocity to the time derivative of the joint space position components.
+
+        \dot{q} = p * \omega
+
+        Returns:
+            np.matrix: The P matrix.
+        """
+
 
     def get_motion_subspace(self):
         """
@@ -123,23 +135,6 @@ class Joint(abc.ABC):
         T[3, 3] = 1
         return T
 
-    def integrate(self, dt:float, q_dd:np.matrix):
-        """
-        Use the integrator to increment the state (q) and velocity (\dot{q})
-
-        Args:
-            dt (float): Time step to increment the integrator.
-            q_dd (np.matrix): Acceleration to integrate.
-        """
-        self.q, self.q_d = self.integrator.step(dt, q_dd)
-
-    def initialize_integrator(self):
-        """
-        Initialize the state of the integrator with the current state of the \
-        joint
-        """
-        self.integrator.initialize_state(self.q, self.q_d)
-
 
 class RevoluteJoint(Joint):
     """
@@ -174,7 +169,6 @@ class RevoluteJoint(Joint):
             temp += 1
         self.q = np.matrix(np.zeros(1)).T
         self.q_d = np.matrix(np.zeros(self.q.shape)).T
-        self.integrator = VerletIntegrator()
 
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3, 1)))
@@ -199,6 +193,10 @@ class RevoluteJoint(Joint):
 
     def get_c(self):
         return np.matrix(np.zeros(6)).T
+    
+    def get_p(self):
+        n = self.get_configuration_d().size
+        return np.eye(n, n)
 
 
 class FreeJoint(Joint):
@@ -226,8 +224,6 @@ class FreeJoint(Joint):
         self.q = np.matrix(np.zeros(shape=(7, 1)))
         self.q[0] = 1
         self.q_d = np.matrix(np.zeros(shape=(6, 1)))
-        self.position_integrator = VerletIntegrator()
-        self.orientation_integrator = ForwardEulerQuaternionIntegrator()
 
     def get_translation_vector(self):
         r = self.q[4:, 0]
@@ -255,28 +251,22 @@ class FreeJoint(Joint):
     def get_c(self):
         return np.matrix(np.zeros(6)).T
 
-    def initialize_integrator(self):
-        orientation = self.q[:4]
-        position = self.q[4:]
-        orientation_d = self.q_d[:3]
-        position_d = self.q_d[3:]
-        self.position_integrator.initialize_state(position, position_d)
-        self.orientation_integrator.initialize_state(orientation, orientation_d)
-
-    def integrate(self, dt, q_dd):
-        orientation_dd = q_dd[:3]
-        position_dd = q_dd[3:]
-        position, position_d = self.position_integrator.step(dt, position_dd)
-        orientation, orientation_d = self.orientation_integrator.step(
-            dt, orientation_dd
-        )
-        self.q = np.concatenate(
-            (orientation.astype(float), position.astype(float)), axis=0
-        )
-        self.q_d = np.concatenate(
-            (orientation_d.astype(float), position_d.astype(float)), axis=0
-        )
-
+    def get_p(self):
+        q_w = self.q[0, 0]
+        q_x = self.q[1, 0]
+        q_y = self.q[2, 0]
+        q_z = self.q[3, 0]
+        orientation = np.matrix([
+            [-q_x, -q_y, -q_z],
+            [q_w, -q_z, q_y],
+            [q_z, q_w, -q_x],
+            [-q_y, q_x, q_w],
+        ])
+        translation = np.eye(3,3)
+        return np.block([
+            [translation, np.zeros((translation.shape[0], orientation.shape[1]))],
+            [np.zeros((orientation.shape[0], translation.shape[1])), orientation]
+        ])
 
 class TranslationJoint(Joint):
     """
@@ -304,7 +294,6 @@ class TranslationJoint(Joint):
         )
         self.q = np.matrix(np.zeros(shape=(3, 1)))
         self.q_d = np.matrix(np.zeros(self.q.shape))
-        self.integrator = VerletIntegrator()
 
     def get_translation_vector(self):
         r = self.q
@@ -316,6 +305,9 @@ class TranslationJoint(Joint):
     def get_c(self):
         return np.matrix(np.zeros(6)).T
 
+    def get_p(self):
+        n = self.get_configuration_d().size
+        return np.eye(n, n)
 
 class FixedJoint(Joint):
     """
@@ -336,7 +328,6 @@ class FixedJoint(Joint):
         self.constraint_force_subspace = np.matrix(np.eye(6, 6))
         self.q = np.matrix(np.zeros(shape=(0, 1)))
         self.q_d = np.matrix(np.zeros(self.q.shape))
-        self.integrator = VerletIntegrator()
 
     def get_translation_vector(self):
         r = np.matrix(np.zeros(shape=(3, 1)))
@@ -347,6 +338,10 @@ class FixedJoint(Joint):
 
     def get_c(self):
         return 0
+
+    def get_p(self):
+        n = self.get_configuration_d().size
+        return np.eye(n, n)
 
     def get_velocity(self):
         return np.matrix(np.zeros(shape=(6, 1)))

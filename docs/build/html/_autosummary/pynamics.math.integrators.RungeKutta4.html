@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>pynamics.math.integrators.ForwardEulerQuaternionIntegrator &#8212; pynamics 0.0.0 documentation</title>
+    <title>pynamics.math.integrators.RungeKutta4 &#8212; pynamics 0.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
@@ -14,8 +14,8 @@
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="pynamics.math.integrators.Integrator" href="pynamics.math.integrators.Integrator.html" />
-    <link rel="prev" title="pynamics.math.integrators" href="pynamics.math.integrators.html" />
+    <link rel="next" title="pynamics.math.linalg" href="pynamics.math.linalg.html" />
+    <link rel="prev" title="pynamics.math.integrators.Integrator" href="pynamics.math.integrators.Integrator.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -33,28 +33,28 @@
 
           <div class="body" role="main">
             
-  <section id="pynamics-math-integrators-forwardeulerquaternionintegrator">
-<h1>pynamics.math.integrators.ForwardEulerQuaternionIntegrator<a class="headerlink" href="#pynamics-math-integrators-forwardeulerquaternionintegrator" title="Link to this heading">¶</a></h1>
+  <section id="pynamics-math-integrators-rungekutta4">
+<h1>pynamics.math.integrators.RungeKutta4<a class="headerlink" href="#pynamics-math-integrators-rungekutta4" title="Link to this heading">¶</a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="pynamics.math.integrators.ForwardEulerQuaternionIntegrator">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pynamics.math.integrators.</span></span><span class="sig-name descname"><span class="pre">ForwardEulerQuaternionIntegrator</span></span><a class="headerlink" href="#pynamics.math.integrators.ForwardEulerQuaternionIntegrator" title="Link to this definition">¶</a></dt>
-<dd><p>Class for performing Forward Euler integration on quaternions.</p>
+<dt class="sig sig-object py" id="pynamics.math.integrators.RungeKutta4">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pynamics.math.integrators.</span></span><span class="sig-name descname"><span class="pre">RungeKutta4</span></span><a class="headerlink" href="#pynamics.math.integrators.RungeKutta4" title="Link to this definition">¶</a></dt>
+<dd><p>Class for performing Runge-Kutta 4 Integration</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="pynamics.math.integrators.ForwardEulerQuaternionIntegrator.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pynamics.math.integrators.ForwardEulerQuaternionIntegrator.__init__" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="pynamics.math.integrators.RungeKutta4.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pynamics.math.integrators.RungeKutta4.__init__" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <p class="rubric">Methods</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#pynamics.math.integrators.ForwardEulerQuaternionIntegrator.__init__" title="pynamics.math.integrators.ForwardEulerQuaternionIntegrator.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#pynamics.math.integrators.RungeKutta4.__init__" title="pynamics.math.integrators.RungeKutta4.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">initialize_state</span></code>(initial_position_state, ...)</p></td>
-<td><p>Initialize the state to integrate from.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code>(dt, acceleration)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">integrate</span></code>(dt, derivative_function)</p></td>
 <td><p>Step the integrator.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_initial_condition</span></code>(initial_condition)</p></td>
+<td><p>Initialize the state to integrate from.</p></td>
 </tr>
 </tbody>
 </table>
@@ -101,8 +101,8 @@
   <li><a href="../API.html">API</a><ul>
   <li><a href="pynamics.math.html">pynamics.math</a><ul>
   <li><a href="pynamics.math.integrators.html">pynamics.math.integrators</a><ul>
-      <li>Previous: <a href="pynamics.math.integrators.html" title="previous chapter">pynamics.math.integrators</a></li>
-      <li>Next: <a href="pynamics.math.integrators.Integrator.html" title="next chapter">pynamics.math.integrators.Integrator</a></li>
+      <li>Previous: <a href="pynamics.math.integrators.Integrator.html" title="previous chapter">pynamics.math.integrators.Integrator</a></li>
+      <li>Next: <a href="pynamics.math.linalg.html" title="next chapter">pynamics.math.linalg</a></li>
   </ul></li>
   </ul></li>
   </ul></li>
@@ -129,7 +129,7 @@
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
       |
-      <a href="../_sources/_autosummary/pynamics.math.integrators.ForwardEulerQuaternionIntegrator.rst.txt"
+      <a href="../_sources/_autosummary/pynamics.math.integrators.RungeKutta4.rst.txt"
           rel="nofollow">Page source</a>
     </div>
 

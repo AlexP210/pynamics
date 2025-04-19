@@ -14,6 +14,7 @@ pynamics.sim.Sim
    .. autosummary::
    
       ~Sim.__init__
+      ~Sim.calculate_joint_space_forces
       ~Sim.forward_dynamics
       ~Sim.get_nonlinear_forces
       ~Sim.inverse_dynamics

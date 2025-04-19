@@ -14,8 +14,8 @@
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="pynamics.math.integrators.VerletIntegrator" href="pynamics.math.integrators.VerletIntegrator.html" />
-    <link rel="prev" title="pynamics.math.integrators.ForwardEulerQuaternionIntegrator" href="pynamics.math.integrators.ForwardEulerQuaternionIntegrator.html" />
+    <link rel="next" title="pynamics.math.integrators.RungeKutta4" href="pynamics.math.integrators.RungeKutta4.html" />
+    <link rel="prev" title="pynamics.math.integrators.ForwardEuler" href="pynamics.math.integrators.ForwardEuler.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -50,11 +50,11 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#pynamics.math.integrators.Integrator.__init__" title="pynamics.math.integrators.Integrator.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">initialize_state</span></code>(initial_position_state, ...)</p></td>
-<td><p>Initialize the state to integrate from.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code>(dt, acceleration)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">integrate</span></code>(dt, derivative_function)</p></td>
 <td><p>Step the integrator.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_initial_condition</span></code>(initial_condition)</p></td>
+<td><p>Initialize the state to integrate from.</p></td>
 </tr>
 </tbody>
 </table>
@@ -101,8 +101,8 @@
   <li><a href="../API.html">API</a><ul>
   <li><a href="pynamics.math.html">pynamics.math</a><ul>
   <li><a href="pynamics.math.integrators.html">pynamics.math.integrators</a><ul>
-      <li>Previous: <a href="pynamics.math.integrators.ForwardEulerQuaternionIntegrator.html" title="previous chapter">pynamics.math.integrators.ForwardEulerQuaternionIntegrator</a></li>
-      <li>Next: <a href="pynamics.math.integrators.VerletIntegrator.html" title="next chapter">pynamics.math.integrators.VerletIntegrator</a></li>
+      <li>Previous: <a href="pynamics.math.integrators.ForwardEuler.html" title="previous chapter">pynamics.math.integrators.ForwardEuler</a></li>
+      <li>Next: <a href="pynamics.math.integrators.RungeKutta4.html" title="next chapter">pynamics.math.integrators.RungeKutta4</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

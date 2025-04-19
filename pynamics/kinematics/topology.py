@@ -245,6 +245,21 @@ class Topology:
             raise ValueError(
                 f"A body with the name {body_name} is already found in" "the topology."
             )
+        
+    def _get_state_vector(self):
+        return np.concatenate(
+            [
+                self.vectorify_position(self.get_joint_space_positions()),
+                self.vectorify_velocity(self.get_joint_space_velocities())
+            ]
+        )
+
+    def _get_P(self):
+        return {
+            (body_name, body_name) : self.joints[body_name].get_p()
+            for body_name in self.get_ordered_body_list()[1:]
+        }
+
 
     def add_connection(
         self,
@@ -555,29 +570,47 @@ class Topology:
 
     def matrixify(self, dictionary):
         body_names = self.get_ordered_body_list()
-        dof = [
-            self.joints[body_name].get_configuration_d().size
-            for body_name in body_names
-        ]
-        N = sum(dof)
-        matrix = np.matrix(np.zeros(shape=(N, N)))
-        s_i = 0
-        for i, body_name_i in enumerate(body_names):
-            s_j = 0
-            for j, body_name_j in enumerate(body_names):
-                if (body_name_i, body_name_j) in dictionary:
-                    matrix_elements = dictionary[(body_name_i, body_name_j)]
-                else:
-                    matrix_elements = np.matrix(np.zeros(shape=(dof[i], dof[j])))
-                matrix[s_i : s_i + dof[i], s_j : s_j + dof[j]] = matrix_elements
-                s_j += dof[j]
-            s_i += dof[i]
-        return matrix
+        return np.block([
+            [dictionary[(i, j)] for j in body_names[1:]]
+            for i in body_names[1:]
+        ])
+    
+        # dof = [
+        #     self.joints[body_name].get_configuration_d().size
+        #     for body_name in body_names
+        # ]
+        # N = sum(dof)
+        # matrix = np.matrix(np.zeros(shape=(N, N)))
+        # s_i = 0
+        # for i, body_name_i in enumerate(body_names):
+        #     s_j = 0
+        #     for j, body_name_j in enumerate(body_names):
+        #         if (body_name_i, body_name_j) in dictionary:
+        #             matrix_elements = dictionary[(body_name_i, body_name_j)]
+        #         else:
+        #             matrix_elements = np.matrix(np.zeros(shape=(dof[i], dof[j])))
+        #         matrix[s_i : s_i + dof[i], s_j : s_j + dof[j]] = matrix_elements
+        #         s_j += dof[j]
+        #     s_i += dof[i]
+        # return matrix
 
-    def dictionarify(self, vector):
+    def dictionarify_velocity(self, vector):
         body_names = self.get_ordered_body_list()
         dof = {
             body_name: self.joints[body_name].get_configuration_d().size
+            for body_name in body_names
+        }
+        s = 0
+        dictionary = {}
+        for body_name in body_names:
+            dictionary[body_name] = vector[s : s + dof[body_name], 0]
+            s += dof[body_name]
+        return dictionary
+
+    def dictionarify_position(self, vector):
+        body_names = self.get_ordered_body_list()
+        dof = {
+            body_name: self.joints[body_name].get_configuration().size
             for body_name in body_names
         }
         s = 0
@@ -598,3 +631,47 @@ class Topology:
             body_name: self.joints[body_name].get_configuration_d()
             for body_name in self.get_ordered_body_list()
         }
+    
+    def get_body_positions(self):
+        body_positions = {}
+        for body_name, body in self.bodies.items():
+            T = self.get_transform(
+                from_body_name="World", from_frame_name="Identity",
+                to_body_name=body_name, to_frame_name="Identity"
+            )
+            r = T[:3,3]
+            C = T[:3,:3]
+            eig_val, eig_vec = np.linalg.eig(C)
+            index = (abs(eig_val.real - 1) < 0.0000001) & (abs(eig_val.imag) <  0.0000001)
+            axis = eig_vec[:,index][:,0]
+            cos_angle = (np.linalg.trace(C) - 1) / 2
+            angle = np.arccos(cos_angle)
+            q = np.matrix([
+                float(np.cos(angle/2)), 
+                float(np.sin(angle/2)*axis[0,0].real), 
+                float(np.sin(angle/2)*axis[1,0].real),
+                float(np.sin(angle/2)*axis[2,0].real)
+            ]).T
+            body_positions[body_name] = np.concatenate([q, r], axis=0)
+        return body_positions
+    
+    def get_body_velocities(self):
+        body_velocities = {}
+        for body_name, body in self.bodies.items():
+            T = self.get_X(
+                from_body_name=body_name, from_frame_name="Identity",
+                to_body_name="World", to_frame_name="Identity"
+            )
+            transformed_velocity = T@body.get_velocity()
+            body_velocities[body_name] = transformed_velocity
+        return body_velocities
+    
+    def set_joint_positions(self, joint_space_positions):
+        for joint_name, joint in self.joints.items():
+            joint.set_configuration(joint_space_positions[joint_name])
+
+    def set_joint_velocities(self, joint_space_velocities):
+        for joint_name, joint in self.joints.items():
+            joint.set_configuration_d(joint_space_velocities[joint_name])
+        self.update_body_velocities()
+

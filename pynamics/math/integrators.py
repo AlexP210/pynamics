@@ -2,6 +2,7 @@
 import abc
 import quaternion
 import numpy as np
+import typing
 
 
 class Integrator(abc.ABC):
@@ -10,76 +11,57 @@ class Integrator(abc.ABC):
     def __init__(self):
         pass
 
-    def initialize_state(self, initial_position_state:np.matrix, initial_velocity_state:np.matrix):
+    def set_initial_condition(self, initial_condition:np.matrix):
         """
         Initialize the state to integrate from.
 
         Args:
-            initial_position_state (np.matrix): The initial position.
-            initial_velocity_state (np.matrix): THe initial velocity.
+            initial_condition (np.matrix): The initial state.
         """
-        self.position_state = initial_position_state
-        self.velocity_state = initial_velocity_state
+        self.state = initial_condition
 
     @abc.abstractmethod
-    def step(self, dt:float, acceleration:np.matrix):
+    def integrate(self, dt:float, derivative_function:typing.Callable[[np.matrix], np.matrix]) -> np.matrix:
         """
         Step the integrator.
 
         Args:
-            dt (float): Timestep to step the integrator by.
-            acceleration (np.matrix): Acceleration to apply.
+            dt (float): Time integral to integrate over.
+            derivative_function (typing.Callable[[np.matrix], np.matrix]): A function that operates
+            on a state to produce a derivative.
+
+        Returns:
+            np.matrix: The updated state.
+            np.matrix: The derivative evaluation
         """
         pass
 
-
-class VerletIntegrator(Integrator):
-    """Class for performing Verlet Integration"""
-    def __init__(self):
-        self.position_state_history = []
-        self.velocity_state_history = []
-
-    def step(self, dt, acceleration):
-        if len(self.position_state_history) == 1:
-            xn = self.position_state_history[0]
-            vn = self.velocity_state_history[0]
-            vnplus1 = vn + acceleration * dt
-            xnplus1 = xn + vn * dt + 0.5 * acceleration * dt**2
-        else:
-            xn = self.position_state_history[-1]
-            vn = self.velocity_state_history[-1]
-            xnminus1 = self.position_state_history[-2]
-            xnplus1 = 2 * xn - xnminus1 + acceleration * dt**2
-            vnplus1 = 2 * (xnplus1 - xn) / dt - vn
-
-        self.position_state = xnplus1
-        self.velocity_state = vnplus1
-        self.position_state_history.append(self.position_state)
-        self.velocity_state_history.append(self.velocity_state)
-        return self.position_state, self.velocity_state
-
-    def initialize_state(self, initial_position_state, initial_velocity_state):
-        super().initialize_state(initial_position_state, initial_velocity_state)
-        self.position_state_history = [
-            initial_position_state,
-        ]
-        self.velocity_state_history = [
-            initial_velocity_state,
-        ]
-
-
-class ForwardEulerQuaternionIntegrator(Integrator):
+class ForwardEuler(Integrator):
     """Class for performing Forward Euler integration on quaternions."""
     def __init__(self):
         pass
 
-    def step(self, dt, acceleration):
-        vn = self.velocity_state
-        vnplus1 = vn + acceleration * dt
-        v_avg = 0.5 * (vn + vnplus1)
-        delta_rotation = quaternion.from_rotation_vector(v_avg.T * dt)
-        current_rotation = quaternion.from_float_array(self.position_state.T)
-        xnplus1 = quaternion.as_float_array(delta_rotation * current_rotation).T
-        self.position_state = xnplus1
-        self.velocity_state = vnplus1
-        return self.position_state, self.velocity_state
+    def set_initial_condition(self, initial_condition):
+        super().set_initial_condition(initial_condition)
+
+    def integrate(self, dt, derivative_function):
+        derivative = derivative_function(self.state)
+        self.state += derivative * dt
+        return self.state, derivative
+    
+class RungeKutta4(Integrator):
+    """Class for performing Runge-Kutta 4 Integration"""
+    def __init__(self):
+        pass
+
+    def set_initial_condition(self, initial_condition):
+        super().set_initial_condition(initial_condition)
+
+    def integrate(self, dt, derivative_function):
+        k1 = derivative_function(self.state)
+        k2 = derivative_function(self.state+dt*k1/2)
+        k3 = derivative_function(self.state+dt*k2/2)
+        k4 = derivative_function(self.state+dt*k3)
+
+        self.state += dt/6 * (k1 + 2*k2 + 2*k3 + k4)
+        return self.state, k1

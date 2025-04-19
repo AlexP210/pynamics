@@ -21,11 +21,10 @@ pynamics.kinematics.joint.FreeJoint
       ~FreeJoint.get_configuration_d
       ~FreeJoint.get_constraint_force_subspace
       ~FreeJoint.get_motion_subspace
+      ~FreeJoint.get_p
       ~FreeJoint.get_rotation_matrix
       ~FreeJoint.get_translation_vector
       ~FreeJoint.get_velocity
-      ~FreeJoint.initialize_integrator
-      ~FreeJoint.integrate
       ~FreeJoint.set_configuration
       ~FreeJoint.set_configuration_d
    

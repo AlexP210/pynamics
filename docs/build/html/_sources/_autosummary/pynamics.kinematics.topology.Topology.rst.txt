@@ -18,15 +18,20 @@ pynamics.kinematics.topology.Topology
       ~Topology.add_frame
       ~Topology.calculate_body_accelerations
       ~Topology.calculate_body_velocities
-      ~Topology.dictionarify
+      ~Topology.dictionarify_position
+      ~Topology.dictionarify_velocity
       ~Topology.get_X
       ~Topology.get_Xstar
+      ~Topology.get_body_positions
+      ~Topology.get_body_velocities
       ~Topology.get_joint_space_positions
       ~Topology.get_joint_space_velocities
       ~Topology.get_mass_matrix
       ~Topology.get_ordered_body_list
       ~Topology.get_transform
       ~Topology.matrixify
+      ~Topology.set_joint_positions
+      ~Topology.set_joint_velocities
       ~Topology.update_body_accelerations
       ~Topology.update_body_velocities
       ~Topology.vectorify_position
