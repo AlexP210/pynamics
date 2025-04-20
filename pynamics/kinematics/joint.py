@@ -264,8 +264,8 @@ class FreeJoint(Joint):
         ])
         translation = np.eye(3,3)
         return np.block([
-            [translation, np.zeros((translation.shape[0], orientation.shape[1]))],
-            [np.zeros((orientation.shape[0], translation.shape[1])), orientation]
+            [orientation, np.zeros((orientation.shape[0], translation.shape[1]))],
+            [np.zeros((translation.shape[0], orientation.shape[1])), translation]
         ])
 
 class TranslationJoint(Joint):

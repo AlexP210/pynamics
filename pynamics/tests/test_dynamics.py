@@ -133,8 +133,8 @@ class TestDynamics(unittest.TestCase):
     def test_gravity(self):
         warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
         topology, visualizer = self.make_cube_topology(joint.FreeJoint())
-        # topology.joints["Cube"].set_configuration(np.matrix([1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),5,0,0]).T)
-        topology.joints["Cube"].set_configuration(np.matrix([1, 0, 0, 0, 5, 0, 0]).T)
+        topology.joints["Cube"].set_configuration(np.matrix([1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4), 5, 0, 0]).T)
+
         sim = Sim(
             topology=topology,
             body_dynamics={"gravity": dynamics.Gravity(g=-9.81, body_names="Cube")},
@@ -149,7 +149,7 @@ class TestDynamics(unittest.TestCase):
         t = np.array(sim.data["Time"])
         a = -9.81
         x_expected = 0.5 * a * (t**2)
-        x = sim.data["Joints"]["Cube"]["Position 6"]
+        x = sim.data["Bodies"]["Cube"]["Position 6"]
 
         self.save_plot_artifact(
             time=t,

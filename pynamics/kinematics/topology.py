@@ -255,10 +255,21 @@ class Topology:
         )
 
     def _get_P(self):
-        return {
-            (body_name, body_name) : self.joints[body_name].get_p()
-            for body_name in self.get_ordered_body_list()[1:]
-        }
+        body_names = self.get_ordered_body_list()[1:]
+        P = {}
+        for body_name_i in body_names:
+            for body_name_j in body_names:
+                if body_name_i == body_name_j:
+                    p =  self.joints[body_name_i].get_p()
+                else:
+                    p = np.zeros(
+                        shape=(
+                            self.joints[body_name_i].get_configuration().size,
+                            self.joints[body_name_j].get_configuration_d().size
+                        )
+                    )
+                P[body_name_i, body_name_j] = p
+        return P
 
 
     def add_connection(
@@ -423,6 +434,16 @@ class Topology:
                 mass_matrix[(body_name_j, body_name_i)] = mass_matrix[
                     (body_name_i, body_name_j)
                 ].T
+        # Fill in the rest
+        for body_name_i in body_names[1:]:
+            for body_name_j in body_names[1:]:
+                if (body_name_i, body_name_j) not in mass_matrix:
+                    mass_matrix[(body_name_i, body_name_j)] = np.zeros(
+                        shape=(
+                            self.joints[body_name_i].get_configuration_d().size,
+                            self.joints[body_name_j].get_configuration_d().size,
+                        )
+                    )
         return mass_matrix
 
     def get_ordered_body_list(self) -> typing.List[Body]:
@@ -674,4 +695,65 @@ class Topology:
         for joint_name, joint in self.joints.items():
             joint.set_configuration_d(joint_space_velocities[joint_name])
         self.update_body_velocities()
+
+    def get_mass(self):
+        if self.mass is not None: return self.mass
+        return sum([body.mass for body in self.bodies.values()])
+
+    def get_center_of_mass(self, as_matrix:bool=False):
+        # If we've already calculated it, return it
+        if self.center_of_mass is not None: 
+            com_m = self.center_of_mass 
+        # Otherwise calculate it
+        else:        
+            first_mass_moment = np.matrix([0.0, 0.0, 0.0]).T
+            total_mass = 0
+            for body_name, body in self.bodies.items():
+                base_to_com_matrix = self.get_transform(
+                    from_body_name="World",
+                    from_frame_name="Identity",
+                    to_body_name=body_name,
+                    to_frame_name="Center of Mass"
+                )
+                base_to_com_translation = base_to_com_matrix[0:3, 3]
+                total_mass += body.mass
+                first_mass_moment += body.mass * base_to_com_translation
+            self.mass = total_mass
+            if self.mass > 0:
+                self.center_of_mass = first_mass_moment / self.mass
+            else:
+                self.center_of_mass = np.matrix([0.0, 0.0, 0.0]).T
+
+            com_m = self.center_of_mass
+
+        if not as_matrix: 
+            return com_m
+        else:
+            ret = np.matrix(np.eye(4,4))
+            ret[0:3,3] = com_m[:,0]
+            return ret
+
+    def get_inertia_tensor(self):
+        if self.inertia_tensor is not None: return self.inertia_tensor
+
+        base_frame_to_topo_com_frame = self.get_center_of_mass(as_matrix=True)
+        topology_inertia_tensor = np.zeros(shape=(3,3))
+        for body_name, body in self.bodies.items():
+            body_com_frame_to_base_frame = self.get_transform(
+                from_body_name=body_name,
+                from_frame_name="Center of Mass",
+                to_body_name="World",
+                to_frame_name="Identity"
+            )
+            A = body_com_frame_to_base_frame * base_frame_to_topo_com_frame
+            R = A[0:3, 0:3]
+            T = A[0:3,3]
+            rotated_body_inertia_tensor = R @ body.inertia_matrix @ R.T
+            correction = body.mass*( (np.linalg.norm(T)**2)*np.matrix(np.eye(3,3)) - T@T.T )
+            transformed_body_inertia_tensor = rotated_body_inertia_tensor + correction
+
+            topology_inertia_tensor += transformed_body_inertia_tensor
+
+        self.inertia_tensor = topology_inertia_tensor
+        return self.inertia_tensor
 

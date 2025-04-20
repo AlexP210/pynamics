@@ -24,8 +24,11 @@ pynamics.kinematics.topology.Topology
       ~Topology.get_Xstar
       ~Topology.get_body_positions
       ~Topology.get_body_velocities
+      ~Topology.get_center_of_mass
+      ~Topology.get_inertia_tensor
       ~Topology.get_joint_space_positions
       ~Topology.get_joint_space_velocities
+      ~Topology.get_mass
       ~Topology.get_mass_matrix
       ~Topology.get_ordered_body_list
       ~Topology.get_transform

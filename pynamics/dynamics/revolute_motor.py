@@ -8,6 +8,7 @@ import numpy as np
 
 from pynamics.dynamics import JointDynamicsParent
 from pynamics.kinematics.topology import Topology
+from pynamics.math import integrators
 
 
 class RevoluteDCMotor(JointDynamicsParent):
@@ -44,6 +45,8 @@ class RevoluteDCMotor(JointDynamicsParent):
         self.voltage = voltage
         self.current = initial_current
         self.emf = 0
+        self.integrator = integrators.RungeKutta4()
+        self.integrator.set_initial_condition(self.current)
 
     def compute_dynamics(
         self, topology: Topology, joint_name: str
@@ -67,10 +70,10 @@ class RevoluteDCMotor(JointDynamicsParent):
     def update(self, topology: Topology, dt: float):
         joint = topology.joints[self.joint_names[0]]
         self.emf = self.electromotive_constant * joint.get_configuration_d()[0, 0]
-        di_dt = (
-            (self.voltage - self.emf) - self.resistance * self.current
-        ) / self.inductance
-        self.current += di_dt * dt
+        self.current, _ = self.integrator.integrate(
+            dt = dt,
+            derivative_function=lambda i: ((self.voltage - self.emf) - self.resistance * i) / self.inductance
+        )
 
     def get_data(self):
         return {
