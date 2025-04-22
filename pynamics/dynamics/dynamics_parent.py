@@ -109,13 +109,19 @@ class JointDynamicsParent(abc.ABC):
             "Implement `compute_dynamics()` in your `JointDynamicsParent` subclass."
         )
 
-    def __call__(self, topology: Topology, joint_name: str) -> np.matrix:
-        if (joint_name in self.joint_names) or (self.joint_names == []):
-            forces, data = self.compute_dynamics(topology, joint_name)
+    def __call__(self, topology: Topology, body_name: str) -> np.matrix:
+        if (self.joint_names == []) or body_name in self.joint_names or any(topology.tree[j] == body_name for j in self.joint_names):
+            forces, data = self.compute_dynamics(topology, body_name)
             total_force = sum(forces)
             data["Total Force"] = np.linalg.norm(total_force)
             for idx in range(total_force.size):
                 data[f"Force {idx}"] = total_force[idx,0]
+            # Either the positive or negative of the force, depending on whether
+            # it's the outboard or inboard body
+            # Not gonna work, if apply to all bodies then each body is outboard
+            # once and inboard once.
+            # Convert the force to a body wrench in the world frame
+
             return total_force, data
         else:
             return np.zeros(

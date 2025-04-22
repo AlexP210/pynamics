@@ -49,7 +49,7 @@ class RevoluteDCMotor(JointDynamicsParent):
         self.integrator.set_initial_condition(self.current)
 
     def compute_dynamics(
-        self, topology: Topology, joint_name: str
+        self, topology: Topology, body_name: str
     ) -> typing.Tuple[np.matrix, np.matrix]:
         joint = topology.joints[joint_name]
         S = joint.get_motion_subspace()
@@ -57,10 +57,16 @@ class RevoluteDCMotor(JointDynamicsParent):
             raise ValueError(
                 f'RevoluteMotor "{self.name}" cannot operate on non-revolute joint "{joint_name}".'
             )
+        point_of_application = topology.get_transform(
+            "World", "Identity", body_name, "Identity"
+        )[:3, 3]
         return [
-            self.electromotive_constant
-            * self.current
-            * np.matrix(np.ones(shape=joint.get_configuration().shape)),
+            (
+                self.electromotive_constant
+                * self.current
+                * np.matrix(np.ones(shape=joint.get_configuration().shape)),
+                point_of_application
+            )
         ], {
             "Current": self.current,
             "EMF": self.emf,
