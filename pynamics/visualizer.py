@@ -219,7 +219,7 @@ class Visualizer:
         self,
         fps: int = 60,
         save_path: str = None,
-        verbose: bool = False,
+        verbose: bool = True,
         figsize=(12, 10),
     ):
         """Animate the `data` of the attached `Sim` object.
@@ -256,7 +256,7 @@ class Visualizer:
             plt.show()
         else:
             if verbose:
-                with tqdm.tqdm(total=N_frames) as progress_bar:
+                with tqdm.tqdm(total=N_frames, desc="Visualizing") as progress_bar:
                     ani.save(
                         save_path, progress_callback=lambda i, n: progress_bar.update()
                     )

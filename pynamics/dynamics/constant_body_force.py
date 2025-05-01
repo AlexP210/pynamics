@@ -49,10 +49,10 @@ class ConstantBodyForce(BodyDynamicsParent):
         )
 
         T_orientation = topology.get_transform(
-            from_body_name=self.application_orientation[0], 
-            from_frame_name=self.application_orientation[1],
-            to_body_name="World",
-            to_frame_name="Identity"
+            from_body_name="World",
+            from_frame_name="Identity",
+            to_body_name=self.application_orientation[0], 
+            to_frame_name=self.application_orientation[1]
         )
 
         return [

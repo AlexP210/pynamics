@@ -13,22 +13,19 @@ from pynamics.constants import HOME
 if __name__ == "__main__":
 
     body = topo.Body(
-        mass=500,
-        center_of_mass=np.matrix([0, 0, 0]).T,
-        inertia_matrix=np.matrix([
-            # Point mass
-            [100,0,0],
-            [0,100,0],
-            [0,0,100]
-        ])
+        mass_properties_model=trimesh.load(
+            file_obj=os.path.join(HOME, "models", "common", "Cube.obj")
+        ),
+        density=900
     )
 
-    water_world = topo.Topology()
-    water_world.add_connection("World", "Identity", body.copy(), "Block", joint.FreeJoint())
-    water_world.joints["Block"].set_configuration_d(np.matrix([0, 0, 0, 0, 0, 0]).T)
-    water_world.joints["Block"].set_configuration(np.matrix([1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4),1/np.sqrt(4), 1, 1, 1]).T)
-    water_world_vis = Visualizer(
-        topology=water_world,
+    topology = topo.Topology()
+    topology.add_connection("World", "Identity", body.copy(), "Block", joint.FreeJoint())
+    topology.joints["Block"].set_configuration_d(np.matrix([0, 0, 0, 0, 0, 0]).T)
+    theta = np.pi/2
+    topology.joints["Block"].set_configuration(np.matrix([np.cos(theta/2),0,np.sin(theta/2),0, 1, 1, 1]).T)
+    visualizer = Visualizer(
+        topology=topology,
         visualization_models={
             (f"Block", "Identity"): trimesh.load(
                 file_obj=os.path.join(HOME, "models", "common", "Cube.obj"), 
@@ -37,44 +34,38 @@ if __name__ == "__main__":
         }
     )
 
-    water_world_sim = Sim(
-        topology=water_world,
+    simulation = Sim(
+        topology=topology,
         body_dynamics={
-            "Constant": ConstantBodyForce(
+            "Force": ConstantBodyForce(
                 force = np.matrix([0,0,-500]).T,
                 application_position=("Block", "Identity"),
                 application_orientation=("World", "Identity")
             ),
-            # "Gravity": Gravity(g=-9.81),
-            "Drag": QuadraticDrag(
-                drag_models={
-                    "Block": trimesh.load(
-                        file_obj=os.path.join(HOME, "models", "common", "Cube.obj"), 
-                        file_type="obj", 
-                        force="mesh")
-                }
-            )
         },
     )
 
-    water_world_sim.simulate(delta_t=0.3*10, dt=0.01, verbose=True)
+    simulation.simulate(delta_t=100, dt=0.1, verbose=True)
     # water_world_sim.save_data("Block_Test.csv")
-    water_world_vis.add_sim_data(water_world_sim)
-    water_world_vis.animate(
+    visualizer.add_sim_data(simulation)
+    visualizer.animate(
         save_path="Block_Test.mp4", 
         verbose=True)
 
-    # Body Velocities
+    # Body Accelerations
     import matplotlib.pyplot as plt
-    t = water_world_sim.data["Time"]
-    for body_idx, body_name in enumerate(water_world.get_ordered_body_list()[1:2]):
+    for body_idx, body_name in enumerate(topology.get_ordered_body_list()[1:]):
         fig, ax = plt.subplots(2,3)
         for i_j in range(6): 
             i = i_j//3
             j = i_j%3
-            v = water_world_sim.data["Bodies"][body_name][f"Velocity {i_j}"]
-            ax[i,j].plot(t, v, linewidth=1, c="k")
+            v = simulation.data["Bodies"][body_name][f"Acceleration {i_j}"]
+            ax[i,j].plot(simulation.data["Time"], v, linewidth=1, c="k")
             ax[i,j].set_xlabel("Time")
-            ax[i,j].set_ylabel(f"Velocity {i_j}")
+            ax[i,j].set_ylabel(f"Acceleration {i_j}")
         fig.suptitle(f"{body_name} Body")
-        plt.show()
+        plt.savefig(f"acceleration_{body_name}.png")
+        plt.cla()
+        plt.clf()
+        plt.cla()
+        plt.close()

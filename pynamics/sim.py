@@ -300,13 +300,23 @@ class Sim:
             joint_space_accelerations
         )
         for body_name, body in self.topology.bodies.items():
-            T = self.topology.get_X(
-                from_body_name=body_name,
-                from_frame_name="Identity",
-                to_body_name="World",
-                to_frame_name="Identity",
+            spatial_acceleration = cartesian_space_accelerations[body_name]
+            spatial_velocity = body.get_velocity()
+            angular_velocity = spatial_velocity[:3]
+            translational_velocity = spatial_velocity[3:] #?
+            angular_acceleration = spatial_acceleration[:3]
+            translational_acceleration = spatial_acceleration[3:] + linalg.R3_cross_product_matrix(angular_velocity)@translational_velocity
+            T = self.topology.get_transform(
+                from_body_name="World", from_frame_name="Identity",
+                to_body_name=body_name, to_frame_name="Identity"
             )
-            transformed_acceleration = T @ cartesian_space_accelerations[body_name]
+            R = T[:3,:3]
+            zeros = np.zeros(shape=R.shape)
+            transformation = np.block([
+                [R, zeros],
+                [zeros, R]
+            ])
+            transformed_acceleration = transformation@np.concatenate([angular_acceleration, translational_acceleration])
             for dof_idx in range(6):
                 self.data["Bodies"][body_name][f"Acceleration {dof_idx}"].append(
                     transformed_acceleration[dof_idx, 0]
@@ -422,7 +432,10 @@ class Sim:
         )
 
         if verbose:
-            for _ in tqdm.tqdm(range(int(delta_t // dt + 1))):
+            for _ in tqdm.tqdm(
+                iterable=np.arange(0, delta_t, step=dt),
+                desc="Simulating"
+            ):
                 self.step(dt=dt)
         else:
             for _ in range(int(delta_t // dt + 1)):

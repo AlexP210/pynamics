@@ -357,7 +357,10 @@ class Topology:
         E = T[:3, :3].T
         r = T[:3, 3]
         r_cross = linalg.R3_cross_product_matrix(r)
-        return np.block([[E, np.zeros((3, 3))], [-E @ r_cross, E]])
+        return np.block([
+            [E, np.zeros((3, 3))], 
+            [-E @ r_cross, E]
+        ])
 
     def get_Xstar(
         self,
@@ -679,11 +682,17 @@ class Topology:
     def get_body_velocities(self):
         body_velocities = {}
         for body_name, body in self.bodies.items():
-            T = self.get_X(
-                from_body_name=body_name, from_frame_name="Identity",
-                to_body_name="World", to_frame_name="Identity"
+            T = self.get_transform(
+                from_body_name="World", from_frame_name="Identity",
+                to_body_name=body_name, to_frame_name="Identity"
             )
-            transformed_velocity = T@body.get_velocity()
+            R = T[:3,:3]
+            zeros = np.zeros(shape=R.shape)
+            transformation = np.block([
+                [R, zeros],
+                [zeros, R]
+            ])
+            transformed_velocity = transformation@body.get_velocity()
             body_velocities[body_name] = transformed_velocity
         return body_velocities
     

@@ -4,7 +4,7 @@ import os
 
 import matplotlib.pyplot as plt
 
-from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag, RevoluteDCMotor, JointDamping, ConstantJointForce
+from pynamics.dynamics import Gravity, Buoyancy, QuadraticDrag, RevoluteDCMotor, JointDamping, ConstantJointForce, ConstantBodyForce
 import pynamics.kinematics.topology as topo
 import pynamics.kinematics.joint as joint
 from pynamics.sim import Sim
@@ -24,6 +24,8 @@ if __name__ == "__main__":
     )
     water_wheel_1_frame = topo.Frame(translation=np.matrix([0,-1.25,0]).T)
     water_wheel_2_frame = topo.Frame(translation=np.matrix([0,1.25,0]).T)
+    water_wheel_tip_frame_1 = topo.Frame(translation=np.matrix([1,0,0]).T)
+    water_wheel_tip_frame_2 = topo.Frame(translation=np.matrix([-1,0,0]).T)
     boat_body.add_frame(water_wheel_1_frame, "Water Wheel 1 Frame")
     boat_body.add_frame(water_wheel_2_frame, "Water Wheel 2 Frame")
     water_wheel_body = topo.Body(
@@ -36,16 +38,15 @@ if __name__ == "__main__":
             [0,0,100/12*(3*0.5**2+0.5**2)]
         ])
     )
+    water_wheel_body.add_frame(water_wheel_tip_frame_1, "Tip Frame 1")
+    water_wheel_body.add_frame(water_wheel_tip_frame_2, "Tip Frame 2")
 
     boat = topo.Topology()
     boat.add_connection("World", "Identity", boat_body.copy(), "Boat", joint.FreeJoint())
     boat.add_connection("Boat", "Water Wheel 1 Frame", water_wheel_body.copy(), "Water Wheel 1", joint.RevoluteJoint(1))
     boat.add_connection("Boat", "Water Wheel 2 Frame", water_wheel_body.copy(), "Water Wheel 2", joint.RevoluteJoint(1))
-
-    print(boat.get_center_of_mass())
-    assert False
     
-    boat.joints["Boat"].set_configuration(np.matrix([1,0,0,0, 0,0,0.1]).T)
+    boat.joints["Boat"].set_configuration(np.matrix([np.cos(np.pi/2),0,np.sin(np.pi/2),0, 0,0,0.1]).T)
     # boat.joints["Boat"].set_configuration(np.matrix([0,0,0.1]).T)
 
     water_world_vis = Visualizer(
@@ -69,6 +70,31 @@ if __name__ == "__main__":
     water_world_sim = Sim(
         topology=boat,
         body_dynamics={
+            "Torque 1 Wheel 1": ConstantBodyForce(
+                force=np.matrix([0,0,1]).T,
+                application_position=("Water Wheel 1", "Tip Frame 1"),
+                application_orientation=("Water Wheel 1", "Tip Frame 1"),
+                body_names=["Water Wheel 1",]
+            ),
+            # "Torque 2 Wheel 1": ConstantBodyForce(
+            #     force=np.matrix([0,0,-1]).T,
+            #     application_position=("Water Wheel 1", "Tip Frame 2"),
+            #     application_orientation=("Water Wheel 1", "Identity"),
+            #     body_names=["Water Wheel 1",]
+            # ),
+            "Torque 1 Wheel 2": ConstantBodyForce(
+                force=np.matrix([0,0,1]).T,
+                application_position=("Water Wheel 2", "Tip Frame 1"),
+                application_orientation=("Water Wheel 2", "Tip Frame 1"),
+                body_names=["Water Wheel 2",]
+            ),
+            # "Gravity" : Gravity(g=-9.81, body_names=["Boat"])
+            # "Torque 2 Wheel 2": ConstantBodyForce(
+            #     force=np.matrix([0,0,-1]).T,
+            #     application_position=("Water Wheel 2", "Tip Frame 2"),
+            #     application_orientation=("Water Wheel 2", "Identity"),
+            #     body_names=["Water Wheel 2",]
+            # ),
             # "gravity": Gravity(-9.81),
             # "buoyancy": Buoyancy(
             #     buoyancy_models={
@@ -118,22 +144,22 @@ if __name__ == "__main__":
             #     resistance=0.1,
             #     inductance=10,
             #     voltage=10),
-            "damp": JointDamping(
-                damping_factor=1,
-                joint_names=["Water Wheel 1", "Water Wheel 2"]
-            ),
-            "motor1" : ConstantJointForce(
-                force=np.matrix([2,]).T,
-                joint_names=["Water Wheel 1",]
-            ),
-            "motor2" : ConstantJointForce(
-                force=np.matrix([2,]).T,
-                joint_names=["Water Wheel 2",]
-            )
+            # "damp": JointDamping(
+            #     damping_factor=1,
+            #     joint_names=["Water Wheel 1", "Water Wheel 2"]
+            # ),
+            # "motor1" : ConstantJointForce(
+            #     force=np.matrix([2,]).T,
+            #     joint_names=["Water Wheel 1",]
+            # ),
+            # "motor2" : ConstantJointForce(
+            #     force=np.matrix([2,]).T,
+            #     joint_names=["Water Wheel 2",]
+            # )
         }
     )
 
-    water_world_sim.simulate(delta_t=20, dt=0.005, verbose=True)
+    water_world_sim.simulate(delta_t=50, dt=0.1, verbose=True)
     # water_world_sim.joint_dynamics["motor1"].voltage = -10
     # water_world_sim.simulate(delta_t=3, dt=0.01, verbose=True)
     # water_world_sim.joint_dynamics["motor1"].voltage = 10
@@ -154,7 +180,7 @@ if __name__ == "__main__":
     #     plt.show()
 
     # Body Accelerations
-    for body_idx, body_name in enumerate(boat.get_ordered_body_list()[1:2]):
+    for body_idx, body_name in enumerate(boat.get_ordered_body_list()[1:]):
         fig, ax = plt.subplots(2,3)
         for i_j in range(6): 
             i = i_j//3
@@ -164,7 +190,29 @@ if __name__ == "__main__":
             ax[i,j].set_xlabel("Time")
             ax[i,j].set_ylabel(f"Acceleration {i_j}")
         fig.suptitle(f"{body_name} Body")
-        plt.show()
+        plt.savefig(f"acceleration_{body_name}.png")
+        plt.cla()
+        plt.clf()
+        plt.cla()
+        plt.close()
+
+    # Body Velocities
+    for body_idx, body_name in enumerate(boat.get_ordered_body_list()[1:]):
+        fig, ax = plt.subplots(2,3)
+        for i_j in range(6): 
+            i = i_j//3
+            j = i_j%3
+            v = water_world_sim.data["Bodies"][body_name][f"Velocity {i_j}"]
+            ax[i,j].plot(t, v, linewidth=1, c="k")
+            ax[i,j].set_xlabel("Time")
+            ax[i,j].set_ylabel(f"Velocity {i_j}")
+        fig.suptitle(f"{body_name} Body")
+        plt.savefig(f"velocity_{body_name}.png")
+        plt.cla()
+        plt.clf()
+        plt.cla()
+        plt.close()
+
 
     # # Motor Current
     # fig, ax = plt.subplots(1, 2)
